@@ -9,11 +9,11 @@ It is designed first for developers and self-hosters who need to continue local 
 private infrastructure, move work between Agent interfaces or automate repeatable tasks without
 turning a device into an unaudited remote shell.
 
-Hosted and self-hosted installations use **one application**: email and GitHub login, account
-isolation, session management, device pairing, scoped Agent credentials, MCP OAuth consent, approvals
-and audit. `/` is the public landing page; `/app` is the authenticated console. The landing page,
-authentication and console share a monochrome design and a persistent English / 简体中文 selector.
-No shared administration token is used.
+Hosted and self-hosted installations use **one application**: email login, optional GitHub login,
+account isolation, session management, device pairing, scoped Agent credentials, MCP OAuth consent,
+approvals and audit. `/` is the public landing page; `/app` is the authenticated console. The
+landing page, authentication and console share a monochrome design and a persistent English /
+简体中文 selector. No shared administration token is used.
 
 Public documentation is available at `/docs`, with quickstart, use cases, authorization concepts,
 architecture, Connector, MCP/CLI/Skill integration, tool reference, security, self-hosting,
@@ -23,6 +23,16 @@ The public positioning, product contract and delivery direction are recorded in
 [product direction](docs/product-direction.md). The implementation topology, request sequence,
 authorization gates and dispatch state machine are mapped in
 [system architecture](docs/system-architecture.md).
+
+## Hosted preview
+
+The current public preview is available at
+**https://adc.47-101-150-8.nip.io:8443**. It serves the Console, MCP endpoint and verified macOS/Linux
+Connector packages from the same deployment.
+
+This is an evaluation environment, not a production service. Email/password registration is enabled
+without email verification; SMTP password recovery and GitHub login are disabled until their
+deployment credentials are configured. Do not store irreplaceable data in the preview.
 
 ## Start a public installation
 

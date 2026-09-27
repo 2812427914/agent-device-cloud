@@ -87,19 +87,23 @@
 
 ## Deployment verification
 
-Compose configuration and Dockerfile are provided. This development environment has no Docker
-Compose plugin/usable container daemon, so image startup and Caddy certificate issuance are not
-claimed as tested. Authentication, migrations and all E2E tests use a real native PostgreSQL process.
-SMTP delivery must be verified with the installation's actual provider.
-GitHub tests simulate only the provider's HTTP endpoints and use real authentication/PostgreSQL.
-Real GitHub consent requires the deployment's OAuth App credentials and callback configuration;
-the local preview leaves GitHub disabled until these are supplied.
+The hosted preview at `https://adc.47-101-150-8.nip.io:8443` runs the same application under systemd
+with an isolated PostgreSQL database and Caddy TLS routing. Public health, static assets, OAuth
+metadata, account registration, authenticated session persistence across an application restart,
+and all four downloadable Connector archives have been verified against that deployment.
+
+Compose configuration and Dockerfile are provided, but container image startup is not yet included
+in the deployment verification above. SMTP delivery must be verified with the installation's actual
+provider. GitHub tests simulate the provider's HTTP endpoints and use real
+authentication/PostgreSQL; real GitHub consent requires the deployment's OAuth App credentials and
+callback configuration. The hosted preview leaves password recovery, email verification and GitHub
+login disabled until those integrations are supplied.
 
 The current sandbox rejects `launchctl` execution with EACCES, so the actual macOS service-manager
 test is opt-in (`ADC_TEST_LAUNCHD=1`) and was not passed here. macOS x64 and Linux arm64/x64 archives
-are built and checksummed; executing those platforms and Linux systemd lifecycle remains to be
-verified on their respective hosts. Native database/installation suites run sequentially to prevent
-archive compression and PostgreSQL startup from starving short-lease tests.
+are built and checksummed; executing those Connector packages and their Linux systemd lifecycle
+remains to be verified on their respective hosts. Native database/installation suites run
+sequentially to prevent archive compression and PostgreSQL startup from starving short-lease tests.
 
 ## Not implemented
 

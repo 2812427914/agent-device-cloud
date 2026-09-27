@@ -210,7 +210,9 @@ function Quickstart() {
           <span>01</span>
           <div>
             <h2>{t("Create an account")}</h2>
-            <p>{t("Open the console and sign in with email or GitHub.")}</p>
+            <p>
+              {t("Open the console and use one of the sign-in methods enabled by this deployment.")}
+            </p>
           </div>
         </li>
         <li>

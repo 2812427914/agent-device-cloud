@@ -422,6 +422,8 @@ export const zh = {
     "使用托管预览只需要一个账户和受支持的 macOS 或 glibc Linux 设备。安装版连接器已自带 Node.js 运行时；只有源码开发需要 Node.js 22。",
   "Create an account": "创建账户",
   "Open the console and sign in with email or GitHub.": "打开控制台，通过邮箱或 GitHub 登录。",
+  "Open the console and use one of the sign-in methods enabled by this deployment.":
+    "打开控制台，并使用当前部署已启用的登录方式。",
   "Open Devices, create a pairing code, and run the generated command on macOS or glibc Linux.":
     "打开「设备」，生成配对码，然后在 macOS 或 glibc Linux 上运行生成的命令。",
   "Choose devices, folders, tools and an approval policy. Projects are optional.":
