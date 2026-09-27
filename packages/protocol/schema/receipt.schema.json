@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "receiptId": {
+      "type": "string",
+      "pattern": "^rcpt_[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "invocationId": {
+      "type": "string",
+      "pattern": "^inv_[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "attemptId": {
+      "type": "string",
+      "pattern": "^att_[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "nodeId": {
+      "type": "string",
+      "pattern": "^node_[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "tool": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "device.list",
+            "device.status",
+            "file.list",
+            "file.read",
+            "file.search",
+            "file.write",
+            "file.edit",
+            "file.patch",
+            "shell.exec",
+            "command.template.list",
+            "command.template.run",
+            "test.run",
+            "task.status",
+            "task.result",
+            "task.cancel"
+          ]
+        },
+        {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 255,
+          "pattern": "^mcp\\.[a-z0-9][a-z0-9_-]{1,63}\\.[a-z0-9][a-z0-9_-]{0,63}\\.[a-f0-9]{8}$"
+        }
+      ]
+    },
+    "terminalStatus": {
+      "type": "string",
+      "enum": [
+        "succeeded",
+        "failed",
+        "denied",
+        "cancelled",
+        "unknown_outcome"
+      ]
+    },
+    "sideEffect": {
+      "type": "boolean"
+    },
+    "replayed": {
+      "default": false,
+      "type": "boolean"
+    },
+    "idempotencyKeyHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "argsHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "policyDecisionHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "outputHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "artifactRefs": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "receiptId",
+    "invocationId",
+    "attemptId",
+    "nodeId",
+    "tool",
+    "terminalStatus",
+    "sideEffect",
+    "replayed",
+    "argsHash",
+    "policyDecisionHash",
+    "startedAt",
+    "completedAt",
+    "durationMs",
+    "artifactRefs"
+  ],
+  "additionalProperties": false
+}

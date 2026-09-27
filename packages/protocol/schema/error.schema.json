@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "invalid_request",
+        "unsupported_version",
+        "expired",
+        "denied",
+        "approval_required",
+        "offline",
+        "ambiguous_target",
+        "not_found",
+        "conflict",
+        "lease_expired",
+        "unknown_outcome",
+        "execution_failed",
+        "cancelled",
+        "internal"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "details": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "code",
+    "message",
+    "retryable"
+  ],
+  "additionalProperties": false
+}

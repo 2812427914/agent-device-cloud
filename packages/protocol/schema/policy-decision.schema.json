@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "deny",
+        "approval_required"
+      ]
+    },
+    "reasonCode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]{2,127}$"
+    },
+    "explanation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "evaluatedLayers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "account",
+          "agent",
+          "node",
+          "root",
+          "capability"
+        ]
+      }
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "read-only",
+        "workspace-write",
+        "approve-required",
+        "unattended"
+      ]
+    },
+    "decisionHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "outcome",
+    "reasonCode",
+    "explanation",
+    "evaluatedLayers",
+    "profile",
+    "decisionHash"
+  ],
+  "additionalProperties": false
+}

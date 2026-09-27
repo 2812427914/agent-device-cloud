@@ -1,0 +1,68 @@
+{
+  "name": "agent-device-cloud",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.14.2",
+  "pnpm": {
+    "overrides": {
+      "@better-auth/utils": "0.4.2"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm schema:check && tsc --noEmit && pnpm --filter @adc/console build",
+    "build:node": "tsx scripts/build-node.ts",
+    "dev": "pnpm --filter @adc/console build && node --env-file-if-exists=.env --import tsx --watch apps/control-plane/src/main.ts",
+    "start": "node --env-file-if-exists=.env --import tsx apps/control-plane/src/main.ts",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "schema:generate": "tsx packages/protocol/src/generate-schemas.ts",
+    "schema:check": "tsx packages/protocol/src/generate-schemas.ts --check",
+    "test": "vitest run",
+    "test:unit": "vitest run --exclude '**/*.integration.test.ts' --exclude '**/*.e2e.test.ts'",
+    "test:integration": "vitest run packages/db/src/postgres-store.integration.test.ts",
+    "test:e2e": "vitest run tests/*.e2e.test.ts",
+    "typecheck": "tsc --noEmit",
+    "adc": "tsx apps/cli/src/main.ts",
+    "adc-node": "tsx apps/node/src/main.ts"
+  },
+  "dependencies": {
+    "@better-auth/oauth-provider": "1.7.5",
+    "@fastify/static": "^10.1.4",
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "better-auth": "1.7.5",
+    "diff": "^8.0.2",
+    "fast-glob": "^3.3.3",
+    "fastify": "^5.6.1",
+    "lucide-react": "^0.544.0",
+    "nodemailer": "^9.1.1",
+    "pg": "^8.16.3",
+    "prom-client": "^15.1.3",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.1",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/diff": "^7.0.2",
+    "@types/node": "^24.5.2",
+    "@types/nodemailer": "^7.0.0",
+    "@types/pg": "^8.15.5",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.3",
+    "esbuild": "^0.28.2",
+    "eslint": "^9.36.0",
+    "postgres-memory-server": "^0.3.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.44.1",
+    "vite": "^7.1.7",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,403 @@
+import { randomBytes } from "node:crypto";
+import {
+  CapabilitySchema,
+  ErrorSchema,
+  InvocationSchema,
+  ResultSchema,
+  absolutePathForToolArgs,
+  createId,
+  isSideEffectTool,
+  rootForAbsolutePath,
+  type AdcError,
+  type CapabilityAdvertisement,
+  type Invocation,
+  type InvocationResult,
+  type ToolCapability,
+  type ToolId
+} from "@adc/protocol";
+import { signNodeRequest } from "./node-auth.ts";
+
+export * from "./node-auth.ts";
+
+type Fetch = typeof globalThis.fetch;
+
+export interface InvocationContext {
+  accountId: string;
+  actorId: string;
+  grantId: string;
+  projectId?: string;
+  nodeIds?: string[];
+  allowedTools?: ToolId[];
+  toolNodeIds?: Partial<Record<ToolId, string[]>>;
+  toolDefinitions?: Partial<Record<ToolId, ToolCapability>>;
+  rootAccess?: "selected" | "all";
+  rootsByNode?: Record<string, string[]>;
+  resourcesByNode?: Record<string, Array<{ rootId: string; path?: string }>>;
+  rootIds: string[];
+}
+
+export function defaultTarget(context: InvocationContext, tool?: string): Invocation["target"] {
+  if (context.projectId) return { projectId: context.projectId };
+  const nodes = context.nodeIds ?? [];
+  if (
+    nodes.length === 1 ||
+    (nodes.length > 0 && ["device.list", "device.status"].includes(tool ?? ""))
+  )
+    return { nodeId: nodes[0]! };
+  throw new Error(
+    nodes.length
+      ? "Multiple devices are authorized; specify a target node."
+      : "No device is authorized."
+  );
+}
+
+function absolutePathTarget(context: InvocationContext): Invocation["target"] {
+  const nodes = context.nodeIds ?? [];
+  if (nodes.length === 1) return { nodeId: nodes[0]! };
+  throw new Error(
+    nodes.length
+      ? "Multiple devices are authorized; specify target.nodeId for an absolute path."
+      : "No device is authorized."
+  );
+}
+
+export function buildInvocation(input: {
+  context: InvocationContext;
+  tool: string;
+  args: unknown;
+  target?: { nodeId: string } | { projectId: string; affinity?: string };
+  source: "http" | "cli" | "mcp" | "sdk" | "skill" | "internal";
+  idempotencyKey?: string;
+  timeoutMs?: number;
+}): Invocation {
+  const issuedAt = new Date();
+  const tool = input.tool;
+  if (isSideEffectTool(tool) && !input.idempotencyKey) {
+    throw new Error("idempotencyKey is required for side-effecting tools");
+  }
+  const args = (input.args ?? {}) as Record<string, unknown>;
+  const absolutePath = absolutePathForToolArgs(tool, args);
+  const target =
+    input.target ??
+    (absolutePath ? absolutePathTarget(input.context) : defaultTarget(input.context, tool));
+  if (absolutePath && !("nodeId" in target)) {
+    throw new Error("Absolute paths require an explicit target.nodeId.");
+  }
+  const legacyRootId = typeof args.rootId === "string" ? args.rootId : undefined;
+  const absoluteRoot =
+    absolutePath && "nodeId" in target
+      ? rootForAbsolutePath(absolutePath, input.context.resourcesByNode?.[target.nodeId] ?? [])
+      : undefined;
+  if (absolutePath && !absoluteRoot) {
+    throw new Error("The absolute path is outside this agent's authorized device folders.");
+  }
+  const targetRootIds =
+    "nodeId" in target
+      ? (input.context.rootsByNode?.[target.nodeId] ??
+        input.context.resourcesByNode?.[target.nodeId]?.map((root) => root.rootId))
+      : undefined;
+  const rootIds = legacyRootId
+    ? input.context.rootAccess === "all"
+      ? [legacyRootId]
+      : input.context.rootIds
+    : absoluteRoot
+      ? [absoluteRoot.rootId]
+      : input.context.rootAccess === "all"
+        ? (targetRootIds ?? input.context.rootIds)
+        : input.context.rootIds;
+  return InvocationSchema.parse({
+    schemaVersion: "0.1",
+    invocationId: createId("inv"),
+    attemptId: createId("att"),
+    accountId: input.context.accountId,
+    actor: { type: "agent", id: input.context.actorId },
+    target,
+    authorization: {
+      ...(input.context.projectId ? { projectId: input.context.projectId } : {}),
+      rootIds,
+      grantId: input.context.grantId
+    },
+    tool: input.tool,
+    args: input.args,
+    issuedAt: issuedAt.toISOString(),
+    expiresAt: new Date(issuedAt.getTime() + (input.timeoutMs ?? 5 * 60_000)).toISOString(),
+    ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+    metadata: { source: input.source }
+  });
+}
+
+export class AdcClientError extends Error {
+  constructor(
+    readonly statusCode: number,
+    readonly error: AdcError
+  ) {
+    super(error.message);
+    this.name = "AdcClientError";
+  }
+}
+
+export class AdcClient {
+  private readonly baseUrl: string;
+
+  constructor(
+    baseUrl: string,
+    private readonly credential: string | { cookie: string },
+    private readonly fetcher: Fetch = fetch
+  ) {
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
+  }
+
+  private headers(): Record<string, string> {
+    return typeof this.credential === "string"
+      ? { authorization: `Bearer ${this.credential}` }
+      : { cookie: this.credential.cookie, origin: new URL(this.baseUrl).origin };
+  }
+
+  private async request(path: string, init: RequestInit = {}): Promise<unknown> {
+    const response = await this.fetcher(`${this.baseUrl}${path}`, {
+      ...init,
+      headers: {
+        ...this.headers(),
+        "content-type": "application/json",
+        ...init.headers
+      }
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const parsed = ErrorSchema.safeParse((body as any).error ?? body);
+      throw new AdcClientError(
+        response.status,
+        parsed.success
+          ? parsed.data
+          : {
+              code: "internal",
+              message: `control plane returned HTTP ${response.status}`,
+              retryable: response.status >= 500
+            }
+      );
+    }
+    return body;
+  }
+
+  async me(): Promise<
+    | {
+        kind: "session";
+        user: { id: string; name: string; email: string };
+        account: { accountId: string; name: string };
+      }
+    | {
+        kind: "agent";
+        context: InvocationContext;
+        grant: { allowedTools: ToolId[]; name: string };
+      }
+  > {
+    return (await this.request("/api/v1/me")) as Awaited<ReturnType<AdcClient["me"]>>;
+  }
+
+  async listNodes(): Promise<unknown[]> {
+    const response = (await this.request("/api/v1/nodes")) as { nodes: unknown[] };
+    return response.nodes;
+  }
+
+  async listProjects(): Promise<unknown[]> {
+    const response = (await this.request("/api/v1/projects")) as { projects: unknown[] };
+    return response.projects;
+  }
+
+  async createPairingCode(ttlSeconds = 600): Promise<{ code: string; expiresAt: string }> {
+    return (await this.request("/api/v1/pairing-codes", {
+      method: "POST",
+      body: JSON.stringify({ ttlSeconds })
+    })) as { code: string; expiresAt: string };
+  }
+
+  async invoke(input: Invocation): Promise<InvocationResult> {
+    const invocation = InvocationSchema.parse(input);
+    const response = await this.request("/api/v1/invocations", {
+      method: "POST",
+      body: JSON.stringify(invocation)
+    });
+    return ResultSchema.parse(response);
+  }
+
+  async taskStatus(jobId: string): Promise<InvocationResult> {
+    return ResultSchema.parse(await this.request(`/api/v1/tasks/${encodeURIComponent(jobId)}`));
+  }
+
+  async cancelTask(jobId: string): Promise<InvocationResult> {
+    return ResultSchema.parse(
+      await this.request(`/api/v1/tasks/${encodeURIComponent(jobId)}/cancel`, {
+        method: "POST",
+        body: "{}"
+      })
+    );
+  }
+
+  async audit(invocationId?: string): Promise<unknown[]> {
+    const query = invocationId ? `?invocationId=${encodeURIComponent(invocationId)}` : "";
+    const response = (await this.request(`/api/v1/audit${query}`)) as { events: unknown[] };
+    return response.events;
+  }
+
+  async listApprovals(): Promise<unknown[]> {
+    const response = (await this.request("/api/v1/approvals")) as {
+      approvals: unknown[];
+    };
+    return response.approvals;
+  }
+
+  async resolveApproval(approvalId: string, decision: "approved" | "denied"): Promise<unknown> {
+    return this.request(`/api/v1/approvals/${encodeURIComponent(approvalId)}`, {
+      method: "POST",
+      body: JSON.stringify({ decision })
+    });
+  }
+
+  async artifact(artifactId: string): Promise<Uint8Array> {
+    const response = await this.fetcher(
+      `${this.baseUrl}/api/v1/artifacts/${encodeURIComponent(artifactId)}`,
+      { headers: this.headers() }
+    );
+    if (!response.ok) {
+      throw new Error(`artifact download returned HTTP ${response.status}`);
+    }
+    return new Uint8Array(await response.arrayBuffer());
+  }
+}
+
+export interface PairedNode {
+  nodeId: string;
+  accountId: string;
+}
+
+export class NodeApiClient {
+  private readonly baseUrl: string;
+
+  constructor(
+    baseUrl: string,
+    readonly nodeId: string | undefined,
+    private readonly privateKey: string,
+    private readonly fetcher: Fetch = fetch
+  ) {
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
+  }
+
+  async pair(input: {
+    code: string;
+    label: string;
+    platform: "darwin" | "linux";
+    publicKey: string;
+  }): Promise<PairedNode> {
+    const response = await this.fetcher(`${this.baseUrl}/api/v1/nodes/pair`, {
+      method: "POST",
+      signal: AbortSignal.timeout(15_000),
+      redirect: "error",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input)
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error((body as any)?.error?.message ?? "node pairing failed");
+    }
+    return body as PairedNode;
+  }
+
+  private async signedRequest(path: string, body: unknown): Promise<any> {
+    if (!this.nodeId) {
+      throw new Error("node is not paired");
+    }
+    const method = "POST";
+    const timestamp = new Date().toISOString();
+    const nonce = randomBytes(18).toString("base64url");
+    const signature = signNodeRequest(this.privateKey, {
+      method,
+      path,
+      timestamp,
+      nonce,
+      body
+    });
+    const response = await this.fetcher(`${this.baseUrl}${path}`, {
+      method,
+      signal: AbortSignal.timeout(15_000),
+      redirect: "error",
+      headers: {
+        "content-type": "application/json",
+        "x-adc-node-id": this.nodeId,
+        "x-adc-timestamp": timestamp,
+        "x-adc-nonce": nonce,
+        "x-adc-signature": signature
+      },
+      body: JSON.stringify(body)
+    });
+    const responseBody = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const parsed = ErrorSchema.safeParse((responseBody as any)?.error);
+      throw new AdcClientError(
+        response.status,
+        parsed.success
+          ? parsed.data
+          : {
+              code: "internal",
+              message: `node API returned HTTP ${response.status}`,
+              retryable: response.status >= 500
+            }
+      );
+    }
+    return responseBody;
+  }
+
+  async poll(capability: CapabilityAdvertisement): Promise<any> {
+    return this.signedRequest(`/api/v1/nodes/${encodeURIComponent(this.nodeId!)}/poll`, {
+      capability: CapabilitySchema.parse(capability)
+    });
+  }
+
+  async acknowledge(dispatchId: string, leaseToken: string): Promise<any> {
+    return this.signedRequest(`/api/v1/nodes/${encodeURIComponent(this.nodeId!)}/ack`, {
+      dispatchId,
+      leaseToken
+    });
+  }
+
+  async renewLease(dispatchId: string, leaseToken: string): Promise<any> {
+    return this.signedRequest(`/api/v1/nodes/${encodeURIComponent(this.nodeId!)}/leases/renew`, {
+      dispatchId,
+      leaseToken
+    });
+  }
+
+  async rotateKey(publicKey: string): Promise<any> {
+    return this.signedRequest(`/api/v1/nodes/${encodeURIComponent(this.nodeId!)}/rotate-key`, {
+      publicKey
+    });
+  }
+
+  async uploadArtifact(input: {
+    dispatchId: string;
+    artifactId: string;
+    contentType: string;
+    sha256: string;
+    data: Buffer;
+  }): Promise<any> {
+    return this.signedRequest(`/api/v1/nodes/${encodeURIComponent(this.nodeId!)}/artifacts`, {
+      dispatchId: input.dispatchId,
+      artifactId: input.artifactId,
+      contentType: input.contentType,
+      sha256: input.sha256,
+      dataBase64: input.data.toString("base64")
+    });
+  }
+
+  async complete(input: {
+    dispatchId: string;
+    leaseToken: string;
+    result: InvocationResult;
+  }): Promise<any> {
+    return this.signedRequest(`/api/v1/nodes/${encodeURIComponent(this.nodeId!)}/receipts`, {
+      dispatchId: input.dispatchId,
+      leaseToken: input.leaseToken,
+      result: ResultSchema.parse(input.result),
+      ...(input.result.receipt ? { receipt: input.result.receipt } : {})
+    });
+  }
+}

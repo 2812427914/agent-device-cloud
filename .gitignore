@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.adc/
+coverage/
+apps/console/dist/
+.DS_Store
+docs/fiction/

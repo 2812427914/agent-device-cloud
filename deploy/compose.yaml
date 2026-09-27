@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: adc
+      POSTGRES_USER: adc
+      POSTGRES_PASSWORD: ${ADC_DATABASE_PASSWORD:?set ADC_DATABASE_PASSWORD}
+    volumes:
+      - adc-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adc -d adc"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  control-plane:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8787
+      ADC_AUTH_SECRET: ${ADC_AUTH_SECRET:?set ADC_AUTH_SECRET}
+      ADC_PUBLIC_URL: ${ADC_PUBLIC_URL:?set ADC_PUBLIC_URL}
+      ADC_REGISTRATION_ENABLED: ${ADC_REGISTRATION_ENABLED:-true}
+      ADC_REQUIRE_EMAIL_VERIFICATION: ${ADC_REQUIRE_EMAIL_VERIFICATION:-true}
+      ADC_SMTP_URL: ${ADC_SMTP_URL:-}
+      ADC_SMTP_FROM: ${ADC_SMTP_FROM:-Agent Device Cloud <no-reply@localhost>}
+      ADC_OAUTH_DYNAMIC_REGISTRATION: ${ADC_OAUTH_DYNAMIC_REGISTRATION:-true}
+      ADC_GITHUB_CLIENT_ID: ${ADC_GITHUB_CLIENT_ID:-}
+      ADC_GITHUB_CLIENT_SECRET: ${ADC_GITHUB_CLIENT_SECRET:-}
+      # Only Caddy reaches the API on this private subnet. It replaces forwarded IP headers.
+      ADC_TRUSTED_PROXIES: "172.29.74.0/24"
+      ADC_CONSOLE_DIR: /app/apps/console/dist
+      ADC_NODE_DOWNLOAD_URL: ${ADC_NODE_DOWNLOAD_URL:-}
+      DATABASE_URL: postgresql://adc:${ADC_DATABASE_PASSWORD}@postgres:5432/adc
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8787/health').then(r=>{if(!r.ok)process.exit(1)})"
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      ADC_SITE: ${ADC_PUBLIC_URL:?set ADC_PUBLIC_URL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - adc-caddy-data:/data
+      - adc-caddy-config:/config
+
+volumes:
+  adc-postgres:
+  adc-caddy-data:
+  adc-caddy-config:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.29.74.0/24

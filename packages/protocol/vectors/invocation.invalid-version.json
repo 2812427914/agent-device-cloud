@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "9.9",
+  "invocationId": "inv_invalidversion",
+  "attemptId": "att_invalidversion",
+  "accountId": "acct_primary",
+  "actor": {
+    "type": "agent",
+    "id": "actor_testagent"
+  },
+  "target": {
+    "projectId": "proj_example"
+  },
+  "authorization": {
+    "projectId": "proj_example",
+    "rootIds": ["root_workspace"],
+    "grantId": "grant_example"
+  },
+  "tool": "file.read",
+  "args": {
+    "rootId": "root_workspace",
+    "path": "README.md"
+  },
+  "issuedAt": "2026-09-24T00:00:00.000Z",
+  "expiresAt": "2026-09-24T00:05:00.000Z",
+  "metadata": {
+    "source": "sdk"
+  }
+}

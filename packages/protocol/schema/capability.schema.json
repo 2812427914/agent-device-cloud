@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "nodeId": {
+      "type": "string",
+      "pattern": "^node_[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "tools": {
+      "maxItems": 512,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema0"
+      }
+    },
+    "roots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rootId": {
+            "type": "string",
+            "pattern": "^root_[a-z0-9][a-z0-9_-]{2,127}$"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "writable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rootId",
+          "label",
+          "writable"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "darwin",
+        "linux"
+      ]
+    },
+    "accessMode": {
+      "type": "string",
+      "enum": [
+        "none",
+        "selected",
+        "home",
+        "full"
+      ]
+    },
+    "nodeVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "advertisedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "nodeId",
+    "tools",
+    "roots",
+    "platform",
+    "nodeVersion",
+    "advertisedAt"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "version": {
+          "$ref": "#/$defs/__schema2"
+        },
+        "risk": {
+          "$ref": "#/$defs/__schema3"
+        },
+        "sandboxProfiles": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "title": {
+          "$ref": "#/$defs/__schema6"
+        },
+        "description": {
+          "$ref": "#/$defs/__schema7"
+        },
+        "inputSchema": {
+          "$ref": "#/$defs/__schema8"
+        },
+        "outputSchema": {
+          "$ref": "#/$defs/__schema12"
+        },
+        "provider": {
+          "$ref": "#/$defs/__schema13"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "risk",
+        "sandboxProfiles"
+      ],
+      "additionalProperties": false
+    },
+    "__schema1": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "device.list",
+            "device.status",
+            "file.list",
+            "file.read",
+            "file.search",
+            "file.write",
+            "file.edit",
+            "file.patch",
+            "shell.exec",
+            "command.template.list",
+            "command.template.run",
+            "test.run",
+            "task.status",
+            "task.result",
+            "task.cancel"
+          ]
+        },
+        {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 255,
+          "pattern": "^mcp\\.[a-z0-9][a-z0-9_-]{1,63}\\.[a-z0-9][a-z0-9_-]{0,63}\\.[a-f0-9]{8}$"
+        }
+      ]
+    },
+    "__schema2": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "__schema3": {
+      "type": "string",
+      "enum": [
+        "read",
+        "write",
+        "execute"
+      ]
+    },
+    "__schema4": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema5"
+      }
+    },
+    "__schema5": {
+      "type": "string",
+      "enum": [
+        "restricted-process",
+        "full-trust",
+        "container"
+      ]
+    },
+    "__schema6": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "__schema7": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "__schema8": {
+      "$ref": "#/$defs/__schema9"
+    },
+    "__schema9": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/__schema10"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/__schema11"
+      }
+    },
+    "__schema10": {
+      "type": "string"
+    },
+    "__schema11": {},
+    "__schema12": {
+      "$ref": "#/$defs/__schema9"
+    },
+    "__schema13": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "mcp"
+        },
+        "providerId": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{1,63}$"
+        },
+        "providerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "sourceToolName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "kind",
+        "providerId",
+        "providerName",
+        "sourceToolName"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
