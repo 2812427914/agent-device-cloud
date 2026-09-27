@@ -174,7 +174,9 @@ adc invoke file.read --node node_example \\
       <main>
         <section className="hero product-hero">
           <div className="hero-copy">
-            <p className="eyebrow">{t("Private device infrastructure for AI agents")}</p>
+            <p className="eyebrow">
+              {t("Public preview · Private device infrastructure for AI agents")}
+            </p>
             <h1>Agent Device Cloud</h1>
             <p className="hero-statement">
               {t(
@@ -188,7 +190,7 @@ adc invoke file.read --node node_example \\
             </p>
             <div className="hero-actions">
               <Link className="primary" to={start}>
-                {t("Connect a device")}
+                {t(signedIn ? "Open console" : "Create an account")}
                 <ArrowRight size={17} />
               </Link>
               <Link to="/docs/architecture" className="text-link">
@@ -605,14 +607,19 @@ adc invoke file.read --node node_example \\
               <h2>{t("One product, the same trust model.")}</h2>
               <p>
                 {t(
-                  "Self-hosting is not a reduced edition. It uses the same accounts, authorization, approvals, audit and device software."
+                  "Use the hosted preview now, or deploy the same application on your own infrastructure. Both use the same accounts, authorization, approvals, audit and device software."
                 )}
               </p>
             </div>
-            <Link className="secondary" to="/docs/self-hosting">
-              {t("Deploy it yourself")}
-              <ArrowRight size={16} />
-            </Link>
+            <div className="row-actions">
+              <Link className="primary" to={start}>
+                {t(signedIn ? "Open console" : "Create an account")}
+                <ArrowRight size={16} />
+              </Link>
+              <Link className="secondary" to="/docs/self-hosting">
+                {t("Self-hosting guide")}
+              </Link>
+            </div>
           </div>
         </section>
 

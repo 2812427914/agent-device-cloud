@@ -201,7 +201,7 @@ function Quickstart() {
       <Section id="requirements" title={t("Before you begin")}>
         <p>
           {t(
-            "Source development requires Node.js 22 or newer. Installed connectors include their own Node.js runtime."
+            "The hosted preview requires an account and a supported macOS or glibc Linux device. Installed connectors include their own Node.js runtime; Node.js 22 is only required for source development."
           )}
         </p>
       </Section>
@@ -933,19 +933,20 @@ function Security() {
       <Section id="assurance" title={t("Current assurance")}>
         <div className="docs-assurance">
           <div>
-            <strong>{t("Verified in automation")}</strong>
+            <strong>{t("Verified in automation and preview")}</strong>
             <ul>
               <li>{t("Protocol schemas, policy decisions and adapter parity")}</li>
               <li>{t("Real PostgreSQL migrations, locking, restart and account isolation")}</li>
               <li>{t("Path traversal, symlink escape, cancellation and idempotency recovery")}</li>
               <li>{t("macOS arm64 installation, upgrade, reconnect and uninstall")}</li>
+              <li>{t("Public HTTPS deployment, database readiness and restart recovery")}</li>
             </ul>
           </div>
           <div>
             <strong>{t("Not yet certified")}</strong>
             <ul>
               <li>{t("External penetration testing and signed release provenance")}</li>
-              <li>{t("Production SMTP, real GitHub consent and public TLS deployment")}</li>
+              <li>{t("Production SMTP and real GitHub consent flows")}</li>
               <li>{t("Linux systemd and every generated cross-platform archive")}</li>
               <li>{t("Hard filesystem, network and process isolation")}</li>
             </ul>
@@ -1060,7 +1061,7 @@ function Roadmap() {
         "macOS and glibc Linux connectors for arm64 and x64",
         "Scoped Agent grants, approvals, audit and durable receipts",
         "MCP OAuth, Agent tokens, CLI, SDK and official Skill",
-        "The same application for hosted and self-hosted deployment"
+        "Hosted public preview and the same application for self-hosted deployment"
       ]
     },
     {

@@ -74,6 +74,8 @@ export const zh = {
   Architecture: "架构",
   Roadmap: "路线图",
   "Private device infrastructure for AI agents": "面向 AI Agent 的私有设备基础设施",
+  "Public preview · Private device infrastructure for AI agents":
+    "公网预览 · 面向 AI Agent 的私有设备基础设施",
   "Give any AI agent controlled access to the files, tools and environments already on your devices.":
     "让任何 AI Agent 在你的控制下，使用设备上已有的文件、工具和环境。",
   "Agents keep using MCP, CLI or SDK. ADC authorizes and routes each call; the selected Mac or Linux device runs the tool.":
@@ -233,7 +235,10 @@ export const zh = {
   "One product, the same trust model.": "同一个产品，同一套信任模型。",
   "Self-hosting is not a reduced edition. It uses the same accounts, authorization, approvals, audit and device software.":
     "自部署不是功能缩水版，它使用相同的账户、授权、审批、审计和设备软件。",
+  "Use the hosted preview now, or deploy the same application on your own infrastructure. Both use the same accounts, authorization, approvals, audit and device software.":
+    "现在即可使用托管预览，也可以在自己的基础设施上部署同一应用；两者使用相同的账户、授权、审批、审计和设备软件。",
   "Deploy it yourself": "自行部署",
+  "Self-hosting guide": "自部署指南",
   "Questions that should have clear answers.": "重要问题，应该有明确答案。",
   "Does the control plane copy my device?": "控制面会复制我的设备数据吗？",
   "No. It does not crawl or mirror your filesystem. Authorized requests and their returned results pass through the control plane and are recorded for audit.":
@@ -309,6 +314,8 @@ export const zh = {
   "MCP OAuth, Agent tokens, CLI, SDK and official Skill":
     "MCP OAuth、Agent Token、CLI、SDK 与官方 Skill",
   "The same application for hosted and self-hosted deployment": "托管与自部署使用同一个完整应用",
+  "Hosted public preview and the same application for self-hosted deployment":
+    "托管公网预览与自部署使用同一个完整应用",
   "Signed release packages and unattended updates": "签名发布包与无人值守升级",
   "Keychain and keyring-backed device identity": "由 Keychain 或 keyring 保护的设备身份",
   "External artifact storage, quotas and retention": "外部产物存储、配额与保留策略",
@@ -361,6 +368,7 @@ export const zh = {
     "脱敏属于尽力防护，无法保证任意已授权内容都不包含敏感信息。",
   "Current assurance": "当前验证范围",
   "Verified in automation": "已通过自动化验证",
+  "Verified in automation and preview": "已通过自动化与公网预览验证",
   "Protocol schemas, policy decisions and adapter parity": "协议 Schema、策略决策与适配器一致性",
   "Real PostgreSQL migrations, locking, restart and account isolation":
     "真实 PostgreSQL 迁移、锁、重启与账户隔离",
@@ -368,10 +376,13 @@ export const zh = {
     "路径穿越、符号链接逃逸、取消与幂等恢复",
   "macOS arm64 installation, upgrade, reconnect and uninstall":
     "macOS arm64 安装、升级、重连与卸载",
+  "Public HTTPS deployment, database readiness and restart recovery":
+    "公网 HTTPS 部署、数据库就绪检查与重启恢复",
   "Not yet certified": "尚未完成认证",
   "External penetration testing and signed release provenance": "外部渗透测试与签名发布溯源",
   "Production SMTP, real GitHub consent and public TLS deployment":
     "生产 SMTP、真实 GitHub 授权与公网 TLS 部署",
+  "Production SMTP and real GitHub consent flows": "生产 SMTP 与真实 GitHub 授权流程",
   "Linux systemd and every generated cross-platform archive":
     "Linux systemd 与全部跨平台安装包实机验证",
   "Hard filesystem, network and process isolation": "文件系统、网络与进程级硬隔离",
@@ -407,6 +418,8 @@ export const zh = {
   "Before you begin": "开始之前",
   "Source development requires Node.js 22 or newer. Installed connectors include their own Node.js runtime.":
     "源码开发需要 Node.js 22 或更高版本；安装版连接器已自带 Node.js 运行时。",
+  "The hosted preview requires an account and a supported macOS or glibc Linux device. Installed connectors include their own Node.js runtime; Node.js 22 is only required for source development.":
+    "使用托管预览只需要一个账户和受支持的 macOS 或 glibc Linux 设备。安装版连接器已自带 Node.js 运行时；只有源码开发需要 Node.js 22。",
   "Create an account": "创建账户",
   "Open the console and sign in with email or GitHub.": "打开控制台，通过邮箱或 GitHub 登录。",
   "Open Devices, create a pairing code, and run the generated command on macOS or glibc Linux.":

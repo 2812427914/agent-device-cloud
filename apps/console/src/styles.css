@@ -3229,6 +3229,9 @@ legend {
   font-size: 13px;
   line-height: 1.8;
 }
+.self-host-layout > .row-actions {
+  justify-content: flex-end;
+}
 .faq-section > div {
   margin-top: 40px;
   border-top: 1px solid var(--line);
@@ -3632,7 +3635,7 @@ legend {
     grid-template-columns: 32px minmax(0, 1fr);
   }
   .truth-note a,
-  .self-host-layout .secondary {
+  .self-host-layout > .row-actions {
     grid-column: 2;
     justify-self: start;
   }
