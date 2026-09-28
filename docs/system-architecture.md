@@ -9,7 +9,7 @@ Planned components are explicitly marked and must not be read as shipped capabil
 flowchart LR
   subgraph Interfaces["Agent interfaces"]
     MCP["Remote MCP client"]
-    CLI["adc CLI / stdio MCP"]
+    CLI["adc account / tool CLI"]
     SKILL["Official Skill"]
     SDK["SDK / HTTP client"]
   end
@@ -33,9 +33,9 @@ flowchart LR
   end
 
   MCP -->|"OAuth + MCP"| AUTH
-  CLI -->|"Agent token + HTTPS"| AUTH
+  CLI -->|"Account login or scoped connection"| AUTH
   SKILL -->|"orchestrates CLI"| CLI
-  SDK -->|"Agent token + HTTPS"| AUTH
+  SDK -->|"Scoped access key + HTTPS"| AUTH
   AUTH --> POLICY
   POLICY --> ROUTER
   ROUTER <--> DB
@@ -74,13 +74,13 @@ flowchart LR
 ```mermaid
 sequenceDiagram
   actor User
-  participant Console
+  participant Manage as Console / adc CLI
   participant CP as Control Plane
   participant DB as PostgreSQL
   participant Node as Device Connector
 
-  User->>Console: Create pairing code
-  Console->>CP: POST /api/v1/pairing-codes
+  User->>Manage: Add device
+  Manage->>CP: POST /api/v1/pairing-codes
   CP->>DB: Store short-lived code hash
   User->>Node: Run generated installer command
   Node->>Node: Generate Ed25519 key pair
@@ -90,8 +90,8 @@ sequenceDiagram
   Node->>Node: Persist private key with mode 0600
   Node->>CP: Signed poll + capability advertisement
   CP->>DB: Save presence and exposed path metadata
-  User->>Console: Create Agent grant
-  Console->>CP: Devices + folders + tools + approval policy
+  User->>Manage: Create Agent access
+  Manage->>CP: Devices + folders + tools + approval policy
   CP->>DB: Save scoped grant and audit event
 ```
 

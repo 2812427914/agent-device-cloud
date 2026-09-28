@@ -1,6 +1,6 @@
 ---
 name: agent-device-cloud
-description: Use an authorized Agent Device Cloud node through the public adc CLI for file work, tests, tasks, and receipts.
+description: Manage and use Agent Device Cloud through the public adc and adc-node CLIs.
 version: 0.1.0
 requirements:
   cli: "adc >=0.1.0 <0.2.0"
@@ -9,26 +9,47 @@ requirements:
 
 # Agent Device Cloud
 
-Use this skill when work must execute on a user's already paired device. This skill only
-orchestrates the public `adc` CLI. Never read Node credentials or call Node poll/receipt endpoints.
+Use this skill to connect and manage devices or execute work on an authorized device. Only
+orchestrate the public `adc` and documented `adc-node` commands. Never read stored credentials,
+Node identity files, or call Node poll/receipt endpoints.
 
 ## Preconditions
 
-1. Run `adc node list --json`. Tool calls require a scoped Agent token, imported by the user with
-   `adc auth token --url <installation-origin>` or supplied through `ADC_URL` and `ADC_TOKEN`.
-   Hosted and self-hosted installations use the same login and authorization flow. A management
-   login alone does not authorize Agent tools; ask the user to create a grant/token in Agent access
-   if no token is configured. Never request the user's password or copy their management session.
-2. Use the device selected by the user. A grant with one device selects it automatically; with
+1. Run `adc status --json`. Account management requires the user to complete
+   `adc login --url <installation-origin> --email <email>`. Never request, receive or enter the
+   user's password. Tool calls require a connection selected with `adc connect <access>`; this
+   creates and stores the scoped credential without printing it.
+2. Use the device selected by the user. Access with one device selects it automatically; with
    multiple devices, pass `--node <node-id>`. Projects are optional: only use `--project` when the
-   user's grant is project-scoped. Account, actor, devices and grant context come from the token's
-   current `/me` response; do not invent or broaden them.
+   user's access is project-scoped. Account, actor, devices and authorization context come from the
+   current connection's `/me` response; do not invent or broaden them.
 3. Address resources with `target.nodeId` and an absolute POSIX path advertised for that device.
    All-folder grants include newly exposed folders; selected-folder grants remain fixed. Rediscover
    after local scope changes. `rootId` plus a relative path is accepted only for compatibility with
    older callers. Pairing itself does not require a folder, but file/command operations require an
    exposed path.
 4. Treat `--json` as the only machine-readable CLI output.
+
+## Account Management
+
+When the user asks to connect or manage infrastructure:
+
+1. Inspect current state with `adc device list --json`, `adc access list --json` and
+   `adc connection list --json`.
+2. Create a one-time installation command with
+   `adc device add --name <name> --json`. Run it on the target only through a channel the user
+   already authorized, or return the command for the user to run there.
+3. Create or update access with `adc access create|update`. Prefer names in user-facing commands
+   and stable IDs in follow-up automation.
+4. Connect this CLI with `adc connect <access-id> --json`; never extract or print the stored secret.
+5. Use `--yes` only when the user explicitly requested a revoke or removal.
+6. Do not approve an operation initiated by this Agent. Leave approval as an independent user
+   decision.
+
+Cloud device policy may only narrow folders already exposed by a Connector. On the current device,
+documented `adc-node roots`, `adc-node access`, `adc-node templates` and `adc-node mcp` commands may
+be used when the user explicitly asks to change local Connector settings. Do not route these local
+configuration commands through a remote `shell.exec`.
 
 ## Golden Path
 
@@ -62,8 +83,8 @@ Set `--source skill` on invocations so audit records distinguish this workflow f
 ## Constraints
 
 - Do not parse human-readable CLI output.
-- Do not read `node.json`, device state, or the CLI's `.session` file.
-- Do not use management sessions to approve an Agent's own work or create broader grants.
+- Do not read `node.json`, device state, CLI configuration or login files.
+- Do not approve an Agent's own work.
 - Use canonical absolute POSIX paths. Do not use `..`, backslashes, duplicate separators or a
   trailing slash.
 - Physical paths are intentionally visible in capability, approval and audit data. Do not expose a
@@ -73,5 +94,5 @@ Set `--source skill` on invocations so audit records distinguish this workflow f
 - Do not claim that `restricted-process` provides hard network or filesystem isolation.
 - Full device trust uses the connector user's OS authority without ADC's command/protected-file
   filters. It does not remove grant capabilities, writable flags, approvals, leases or revocation.
-- Scope changes happen locally with `adc-node roots` / `adc-node access` and hot reload; never
-  edit device identity/configuration or expand access on behalf of an Agent.
+- Scope changes happen through documented `adc-node` commands and hot reload. Never edit device
+  identity/configuration files directly.

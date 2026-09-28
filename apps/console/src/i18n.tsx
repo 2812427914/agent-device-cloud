@@ -43,8 +43,12 @@ export const zh = {
   "No matching authorizations": "没有符合条件的授权",
   "Changes apply to existing tokens and MCP connections. No new token is needed.":
     "保存后现有 Token 和 MCP 连接使用新的权限，无需重新生成 Token。客户端的工具列表如有缓存，重新连接即可刷新。",
+  "Changes apply to existing connections. No reconnection is needed.":
+    "保存后现有连接立即使用新的权限，无需重新连接。",
   "Authorization updated. Existing tokens use the saved permissions.":
     "授权已更新，现有 Token 将使用保存后的权限。",
+  "Authorization updated. Existing connections use the saved permissions.":
+    "授权已更新，现有连接将使用保存后的权限。",
   "Agent authorized.": "Agent 已授权。",
   "Authorization deleted.": "授权已删除，相关 Token 和 MCP 连接已失效。",
   "Authorization revoked.": "授权已撤销，相关 Token 和 MCP 连接已失效。",
@@ -52,8 +56,12 @@ export const zh = {
   "Revoke authorization {name}?": "撤销授权「{name}」？",
   "This authorization and its tokens will be removed from the list. All associated tokens and MCP connections stop working. Execution history is kept.":
     "此授权及相关 Token 将从列表移除，所有关联 Token 和 MCP 连接会停止工作。执行历史会保留。",
+  "This authorization and its connections will be removed from the list. Execution history is kept.":
+    "此授权及相关连接将从列表移除并停止工作，执行历史会保留。",
   "All tokens and MCP connections for this authorization stop working. You can still view or delete the revoked authorization.":
     "此授权的所有 Token 和 MCP 连接会停止工作。你仍可以查看或删除已撤销的授权。",
+  "All connections for this authorization stop working. You can still view or delete the revoked authorization.":
+    "此授权的所有连接都会停止工作，你仍可以查看或删除已撤销的授权。",
   "No folders selected: device discovery and task tools only.":
     "未选择目录时，仅可使用设备发现和任务管理工具。",
   "Device changed. Refresh and try again.": "设备已被其他操作修改，请关闭编辑窗口并刷新后重试。",
@@ -313,6 +321,7 @@ export const zh = {
     "范围明确的 Agent 授权、审批、审计与持久回执",
   "MCP OAuth, Agent tokens, CLI, SDK and official Skill":
     "MCP OAuth、Agent Token、CLI、SDK 与官方 Skill",
+  "MCP OAuth, CLI connections, SDK and official Skill": "MCP OAuth、CLI 连接、SDK 与官方 Skill",
   "The same application for hosted and self-hosted deployment": "托管与自部署使用同一个完整应用",
   "Hosted public preview and the same application for self-hosted deployment":
     "托管公网预览与自部署使用同一个完整应用",
@@ -346,6 +355,11 @@ export const zh = {
     "Token 以哈希保存、具有有效期，并绑定到一份可撤销授权。",
   "A copied bearer token remains usable until it expires or is revoked.":
     "被复制的 Bearer Token 在到期或撤销前仍然可用。",
+  "Stolen access key": "访问密钥被盗",
+  "Access keys are hashed, expire and bind to one revocable authorization.":
+    "访问密钥以哈希保存、具有有效期，并绑定到一份可撤销授权。",
+  "A copied access key remains usable until it expires or is revoked.":
+    "被复制的访问密钥在到期或撤销前仍然可用。",
   "Compromised device key": "设备密钥泄露",
   "Every request uses an Ed25519 signature, timestamp and durable one-time nonce.":
     "每个请求都使用 Ed25519 签名、时间戳和持久化一次性随机数。",
@@ -431,6 +445,8 @@ export const zh = {
   "Connect a client": "连接客户端",
   "Use OAuth MCP when available, or create an expiring Agent token for CLI and SDK access.":
     "优先使用 OAuth MCP，也可以创建有有效期的 Agent Token，供 CLI 和 SDK 使用。",
+  "Use OAuth MCP when available, or run adc connect after signing in to the CLI.":
+    "优先使用 OAuth MCP；使用 CLI 时，登录后运行 adc connect 即可。",
   "Verify access": "验证访问",
   "Start with device.list or file.list, then inspect Activity for the policy decision and receipt.":
     "先调用 device.list 或 file.list，再到「活动记录」检查策略决策和回执。",
@@ -445,6 +461,8 @@ export const zh = {
     "账户所有者可进一步缩小目录范围、设为只读，或对所有 Agent 禁用执行。",
   "An Agent grant selects devices, folders and tools. Existing tokens always use the latest saved grant.":
     "Agent 授权选择设备、目录和工具；现有 Token 始终使用最新保存的授权。",
+  "Agent access selects devices, folders and tools. Existing connections always use the latest saved settings.":
+    "Agent 访问权限选择设备、目录和工具；现有连接始终使用最新保存的设置。",
   "Approvals are independent from capability. They can apply to writes, execution or every device operation.":
     "审批与能力授权相互独立，可作用于写入、执行或每一次设备操作。",
   "Projects are optional groups for legacy or multi-device workflows; they are not a security boundary.":
@@ -467,6 +485,7 @@ export const zh = {
   "Each logical tool appears once. Its target list contains only authorized devices that advertise that tool, and device execution requires the Agent to select one of those targets.":
     "每个逻辑工具只出现一次；目标列表只包含已授权且声明该工具的设备，执行设备工具时 Agent 必须从中明确选择一台。",
   "Token-based MCP": "Token 模式 MCP",
+  "Access-key MCP": "访问密钥模式 MCP",
   "Official Skill": "官方 Skill",
   "The official Skill orchestrates the same adc CLI and never reads device credentials.":
     "官方 Skill 调用同一套 adc CLI，且不会读取设备凭据。",
@@ -599,6 +618,7 @@ export const zh = {
   "Define an agent's devices and capabilities.": "配置 Agent 可使用的设备和能力。",
   "Client connected": "客户端已连接",
   "Create a token or connect an MCP client.": "创建 Token 或连接 MCP 客户端。",
+  "Connect the CLI or an MCP client.": "连接 CLI 或 MCP 客户端。",
   Complete: "已完成",
   "Review approvals": "查看审批",
   "Recent activity": "近期活动",
@@ -749,6 +769,22 @@ export const zh = {
     "选择设备、操作能力与审批策略。通过 MCP、CLI、Skill 或 SDK 使用同一份授权。",
   "Revoke this access? Existing connections using it will stop working.":
     "撤销此授权？使用它的现有连接将停止工作。",
+  "Connect CLI": "连接 CLI",
+  "Sign in once in your terminal, then connect this access without copying a token.":
+    "在终端登录一次，然后直接连接这份访问权限，无需复制 Token。",
+  "Copy your access key": "复制访问密钥",
+  "Dismiss access key": "关闭访问密钥",
+  "This access key is shown once. Store it with your application's secrets.":
+    "访问密钥仅展示一次，请保存在应用的密钥配置中。",
+  "Copy access key": "复制访问密钥",
+  "Copy failed. Select and copy the access key manually.": "复制失败，请手动选择并复制访问密钥。",
+  "Paste the access key when prompted.": "按提示粘贴访问密钥。",
+  "Advanced access keys": "高级访问密钥",
+  "Access keys are only needed for SDKs and clients that cannot use OAuth or adc connect.":
+    "访问密钥仅用于无法使用 OAuth 或 adc connect 的 SDK 和客户端。",
+  "SDK integration": "SDK 集成",
+  "Create access key": "创建访问密钥",
+  "No access keys created": "尚未创建访问密钥",
   "Copy your token": "复制你的 Token",
   "Dismiss token": "关闭 Token",
   "This token is shown once. Store it with your agent's secrets.":
@@ -774,6 +810,8 @@ export const zh = {
     "在支持 OAuth 的 MCP 客户端中添加此地址，登录并选择授权即可。",
   "For clients using a token, add this MCP configuration.":
     "使用 Token 的客户端，可添加以下 MCP 配置。",
+  "For clients using an access key, add this MCP configuration.":
+    "使用访问密钥的客户端，可添加以下 MCP 配置。",
   Disconnect: "断开连接",
   "Agent name": "Agent 名称",
   "Coding assistant": "编程助手",

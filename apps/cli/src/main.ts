@@ -15,6 +15,31 @@ import {
   signIn,
   signOut
 } from "./auth.ts";
+import { isManagementCommand, managementUsage, runManagementCommand } from "./management.ts";
+
+const usage = `Agent Device Cloud
+Usage:
+  adc login --url URL --email EMAIL
+  adc logout | status
+  adc device add|list|show|update|wait|revoke|remove
+  adc access create|list|show|update|revoke|remove
+  adc connect ACCESS
+  adc connection list|revoke
+  adc approval list|approve|deny
+  adc project list|create|roots|root-add
+  adc invoke TOOL --args JSON
+  adc task status|result|cancel JOB
+  adc artifact get ID
+  adc audit show|list
+  adc mcp
+
+${managementUsage}
+
+Advanced compatibility:
+  adc auth login|token|status|logout
+  adc node list|pairing-code
+Device-local setup and settings:
+  adc-node --help`;
 
 function parseArgs(args: string[]): { positionals: string[]; flags: Map<string, string | true> } {
   const positionals: string[] = [];
@@ -80,7 +105,11 @@ function print(value: unknown, json: boolean): void {
 
 async function main(): Promise<void> {
   const { positionals, flags } = parseArgs(process.argv.slice(2));
-  const [domain, action] = positionals;
+  let [domain, action] = positionals;
+  if (domain === "login" || domain === "logout" || domain === "status") {
+    action = domain;
+    domain = "auth";
+  }
   const json = flags.has("json");
 
   if (flags.has("version") || domain === "version") {
@@ -88,9 +117,7 @@ async function main(): Promise<void> {
     return;
   }
   if (!domain || flags.has("help") || domain === "help") {
-    console.log(
-      "Usage: adc auth login|token|status|logout | node list|pairing-code | invoke TOOL --args JSON | task status|result|cancel JOB | artifact get ID | audit show|list | mcp\nDevice setup and background service: adc-node --help"
-    );
+    console.log(usage);
     return;
   }
 
@@ -103,7 +130,7 @@ async function main(): Promise<void> {
   }
   if (domain === "auth" && action === "token") {
     const url = serverURL(requiredFlag(flags, "url"));
-    const token = await readSecret("Agent token", flags.has("stdin"));
+    const token = await readSecret("Agent access key", flags.has("stdin"));
     print(await importToken(url, token), json);
     return;
   }
@@ -116,17 +143,29 @@ async function main(): Promise<void> {
     return;
   }
 
-  const management = (domain === "node" && action === "pairing-code") || flags.has("session");
-  if (management && !["node", "audit"].includes(domain ?? "")) {
-    throw new Error(
-      "Session credentials are only for device management and audit. Invoke and MCP require an agent token."
-    );
-  }
+  const management = isManagementCommand(domain, action, flags);
+  if (flags.has("session") && !management)
+    throw new Error("This command does not accept the account login. Use an Agent connection.");
   const config = management ? await loadSession() : await loadAgent();
   const client = new AdcClient(
     config.url,
     "token" in config ? config.token : { cookie: config.cookie }
   );
+
+  if (management) {
+    const result = await runManagementCommand({
+      domain,
+      action,
+      positionals,
+      flags,
+      client,
+      url: config.url
+    });
+    if (result.handled) {
+      print(result.value, json);
+      return;
+    }
+  }
 
   if (domain === "node" && action === "list") {
     if (management) {
@@ -134,7 +173,7 @@ async function main(): Promise<void> {
       return;
     }
     const me = await client.me();
-    if (me.kind !== "agent") throw new Error("An agent token is required.");
+    if (me.kind !== "agent") throw new Error("An Agent connection is required.");
     const result = await client.invoke(
       buildInvocation({
         context: me.context,
@@ -160,7 +199,7 @@ async function main(): Promise<void> {
     if (!action) throw new Error("tool name is required");
     const tool = ToolIdSchema.parse(action);
     const me = await client.me();
-    if (me.kind !== "agent") throw new Error("Invocations require an agent token.");
+    if (me.kind !== "agent") throw new Error("Invocations require an Agent connection.");
     const projectId = stringFlag(flags, "project") ?? me.context.projectId;
     if (projectId !== me.context.projectId)
       throw new Error("The project must match this token's authorization.");
@@ -247,7 +286,7 @@ async function main(): Promise<void> {
   }
   if (domain === "mcp") {
     const me = await client.me();
-    if (me.kind !== "agent") throw new Error("MCP requires an agent token.");
+    if (me.kind !== "agent") throw new Error("MCP requires an Agent connection.");
     const server = createMcpServer({
       client,
       context: me.context,
@@ -262,9 +301,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  throw new Error(
-    "Usage: adc auth login|token|status|logout | node list|pairing-code | invoke TOOL | task status|result|cancel JOB | artifact get ID | audit show|list | mcp"
-  );
+  throw new Error(usage);
 }
 
 main().catch((error) => {

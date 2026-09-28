@@ -97,9 +97,9 @@ export function Agents({
   const [projects, setProjects] = useState<Project[]>([]),
     [nodes, setNodes] = useState<NodeRecord[]>([]);
   const [creating, setCreating] = useState(false),
-    [tokenGrant, setTokenGrant] = useState(""),
     [token, setToken] = useState(""),
     [busy, setBusy] = useState(false);
+  const [connecting, setConnecting] = useState<Grant>();
   const [editing, setEditing] = useState<Grant>();
   const [action, setAction] = useState<{ grant: Grant; kind: "delete" | "revoke" }>();
   const [search, setSearch] = useState(""),
@@ -154,13 +154,12 @@ export function Agents({
       const result = await request("/api/v1/credentials", {
         method: "POST",
         body: JSON.stringify({
-          grantId: tokenGrant,
+          grantId: data.get("grant"),
           name: data.get("name"),
           expiresInDays: Number(data.get("days"))
         })
       });
       setToken(result.token);
-      setTokenGrant("");
       refresh();
     } catch (error) {
       onError((error as Error).message);
@@ -210,7 +209,7 @@ export function Agents({
             setEditing(undefined);
             setNotice(
               editing
-                ? "Authorization updated. Existing tokens use the saved permissions."
+                ? "Authorization updated. Existing connections use the saved permissions."
                 : "Agent authorized."
             );
             refresh();
@@ -227,8 +226,8 @@ export function Agents({
           )}
           description={t(
             action.kind === "delete"
-              ? "This authorization and its tokens will be removed from the list. All associated tokens and MCP connections stop working. Execution history is kept."
-              : "All tokens and MCP connections for this authorization stop working. You can still view or delete the revoked authorization."
+              ? "This authorization and its connections will be removed from the list. Execution history is kept."
+              : "All connections for this authorization stop working. You can still view or delete the revoked authorization."
           )}
           actionLabel={t(action.kind === "delete" ? "Delete" : "Revoke")}
           onClose={() => setAction(undefined)}
@@ -242,7 +241,6 @@ export function Agents({
                 )
               }
             );
-            if (tokenGrant === action.grant.grantId) setTokenGrant("");
             setToken("");
             setNotice(
               action.kind === "delete" ? "Authorization deleted." : "Authorization revoked."
@@ -251,30 +249,64 @@ export function Agents({
           }}
         />
       ) : null}
+      {connecting ? (
+        <div className="card token-card" role="status">
+          <div className="page-header">
+            <h2>{t("Connect CLI")}</h2>
+            <button
+              className="icon-button"
+              aria-label={t("Close")}
+              onClick={() => setConnecting(undefined)}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <p className="description">
+            {t("Sign in once in your terminal, then connect this access without copying a token.")}
+          </p>
+          <div className="token-value">
+            <code>adc connect {connecting.grantId} --json</code>
+            <button
+              className="icon-button"
+              aria-label={t("Copy command")}
+              onClick={() =>
+                void navigator.clipboard
+                  .writeText(`adc connect ${connecting.grantId} --json`)
+                  .catch(() => onError(t("Could not copy. Select and copy the command above.")))
+              }
+            >
+              <Clipboard size={16} />
+            </button>
+          </div>
+          <p className="hint">
+            <code>adc login --url {window.location.origin} --email you@example.com</code>
+          </p>
+        </div>
+      ) : null}
       {token ? (
         <div className="card token-card" role="status">
           <div className="page-header">
-            <h2>{t("Copy your token")}</h2>
+            <h2>{t("Copy your access key")}</h2>
             <button
               className="icon-button"
-              aria-label={t("Dismiss token")}
+              aria-label={t("Dismiss access key")}
               onClick={() => setToken("")}
             >
               <X size={16} />
             </button>
           </div>
           <p className="description">
-            {t("This token is shown once. Store it with your agent's secrets.")}
+            {t("This access key is shown once. Store it with your application's secrets.")}
           </p>
           <div className="token-value">
             <code>{token}</code>
             <button
               className="icon-button"
-              aria-label={t("Copy token")}
+              aria-label={t("Copy access key")}
               onClick={() =>
                 void navigator.clipboard
                   .writeText(token)
-                  .catch(() => onError(t("Copy failed. Select and copy the token manually.")))
+                  .catch(() => onError(t("Copy failed. Select and copy the access key manually.")))
               }
             >
               <Clipboard size={16} />
@@ -283,7 +315,7 @@ export function Agents({
           <p className="hint">
             <code>adc auth token --url {window.location.origin}</code>
             <br />
-            {t("Paste the token when prompted.")}
+            {t("Paste the access key when prompted.")}
           </p>
         </div>
       ) : null}
@@ -357,10 +389,10 @@ export function Agents({
                     className="secondary"
                     onClick={() => {
                       setToken("");
-                      setTokenGrant(grant.grantId);
+                      setConnecting(grant);
                     }}
                   >
-                    {t("Create token")}
+                    {t("Connect CLI")}
                   </button>
                   <button
                     className="secondary danger"
@@ -387,12 +419,32 @@ export function Agents({
           </div>
         ) : null}
       </div>
-      {tokenGrant ? (
-        <form className="card connection-form" onSubmit={createToken}>
-          <h2>{t("Create agent token")}</h2>
+      <details className="advanced-permissions">
+        <summary>{t("Advanced access keys")}</summary>
+        <p className="description">
+          {t(
+            "Access keys are only needed for SDKs and clients that cannot use OAuth or adc connect."
+          )}
+        </p>
+        <form className="connection-form" onSubmit={createToken}>
+          <label>
+            {t("Access")}
+            <select name="grant" required defaultValue="">
+              <option value="" disabled>
+                {t("Choose an authorization")}
+              </option>
+              {grants
+                .filter((grant) => !grant.revokedAt)
+                .map((grant) => (
+                  <option key={grant.grantId} value={grant.grantId}>
+                    {grant.name}
+                  </option>
+                ))}
+            </select>
+          </label>
           <label>
             {t("Name")}
-            <input name="name" placeholder={t("My coding agent")} maxLength={128} required />
+            <input name="name" placeholder={t("SDK integration")} maxLength={128} required />
           </label>
           <label>
             {t("Expires in")}
@@ -405,47 +457,44 @@ export function Agents({
               <option value="365">{t("1 year")}</option>
             </select>
           </label>
-          <div className="row-actions">
-            <button className="primary" disabled={busy}>
-              {t("Create token")}
-            </button>
-            <button type="button" className="secondary" onClick={() => setTokenGrant("")}>
-              {t("Cancel")}
-            </button>
-          </div>
+          <button
+            className="secondary"
+            disabled={busy || !grants.some((grant) => !grant.revokedAt)}
+          >
+            {t("Create access key")}
+          </button>
         </form>
-      ) : null}
-      <h2>{t("Tokens")}</h2>
-      <div className="resource-list">
-        {credentials.map((credential) => (
-          <div className="resource-row" key={credential.credentialId}>
-            <div>
-              <strong>{credential.name}</strong>
-              <p className="hint">
-                {grants.find((grant) => grant.grantId === credential.grantId)?.name} ·{" "}
-                {t("Expires {date}", { date: date(credential.expiresAt) })} ·{" "}
-                {credential.lastUsedAt
-                  ? t("Last used {date}", { date: date(credential.lastUsedAt) })
-                  : t("Never used")}
-              </p>
+        <div className="resource-list">
+          {credentials.map((credential) => (
+            <div className="resource-row" key={credential.credentialId}>
+              <div>
+                <strong>{credential.name}</strong>
+                <p className="hint">
+                  {grants.find((grant) => grant.grantId === credential.grantId)?.name} ·{" "}
+                  {t("Expires {date}", { date: date(credential.expiresAt) })} ·{" "}
+                  {credential.lastUsedAt
+                    ? t("Last used {date}", { date: date(credential.lastUsedAt) })
+                    : t("Never used")}
+                </p>
+              </div>
+              {credential.revokedAt ? (
+                <span className="state revoked">{t("Revoked")}</span>
+              ) : Date.parse(credential.expiresAt) <= Date.now() ? (
+                <span className="state expired">{t("Expired")}</span>
+              ) : (
+                <button
+                  className="secondary danger"
+                  disabled={busy}
+                  onClick={() => revoke(`credentials/${credential.credentialId}/revoke`)}
+                >
+                  {t("Revoke")}
+                </button>
+              )}
             </div>
-            {credential.revokedAt ? (
-              <span className="state revoked">{t("Revoked")}</span>
-            ) : Date.parse(credential.expiresAt) <= Date.now() ? (
-              <span className="state expired">{t("Expired")}</span>
-            ) : (
-              <button
-                className="secondary danger"
-                disabled={busy}
-                onClick={() => revoke(`credentials/${credential.credentialId}/revoke`)}
-              >
-                {t("Revoke")}
-              </button>
-            )}
-          </div>
-        ))}
-        {!credentials.length ? <p className="empty">{t("No tokens created")}</p> : null}
-      </div>
+          ))}
+          {!credentials.length ? <p className="empty">{t("No access keys created")}</p> : null}
+        </div>
+      </details>
       <h2>{t("MCP connections")}</h2>
       <div className="card">
         <p className="description">
@@ -455,7 +504,7 @@ export function Agents({
         </p>
         <code>{window.location.origin}/mcp</code>
         <details className="mcp-config">
-          <summary>{t("For clients using a token, add this MCP configuration.")}</summary>
+          <summary>{t("For clients using an access key, add this MCP configuration.")}</summary>
           <pre>
             <code>
               {JSON.stringify(
@@ -463,7 +512,7 @@ export function Agents({
                   mcpServers: {
                     adc: {
                       url: `${window.location.origin}/mcp`,
-                      headers: { Authorization: "Bearer <AGENT_TOKEN>" }
+                      headers: { Authorization: "Bearer <ACCESS_KEY>" }
                     }
                   }
                 },
@@ -644,7 +693,7 @@ export function GrantForm({
       ) : null}
       {initial ? (
         <p className="description">
-          {t("Changes apply to existing tokens and MCP connections. No new token is needed.")}
+          {t("Changes apply to existing connections. No reconnection is needed.")}
         </p>
       ) : null}
       <form className="grant-form" onSubmit={submit}>

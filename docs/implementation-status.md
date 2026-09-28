@@ -29,6 +29,9 @@
 - Placement, dispatch, lease/ACK/renewal, deadline watchdog, cancellation and reconnect reconciliation
 - Persistent owner approval queue with approve, deny and expiry states
 - REST client, CLI, stdio/HTTP MCP adapters and official Skill
+- Account-management CLI for device enrollment/policy, Agent access, connections, projects,
+  approvals and audit; `adc connect` provisions the current CLI without exposing its secret
+- Local command-template add/list/remove commands with automatic Connector reload
 - Device-side MCP Provider registry for stdio and Streamable HTTP, automatic `tools/list`
   discovery, stable schema-versioned Tool IDs, local `tools/call` forwarding and hot reload
 - MCP tool projection deduplicates logical tools, requires an explicit model-selected Node for
@@ -44,7 +47,8 @@
 - Account overview with setup progress, device health, active Agent/client counts, approvals and activity
 - `/app` Overview, Devices, optional Projects/Roots, Agent access, Approvals, Activity and Settings
 - 658 typed translations, persisted language preference, locale-aware dates and old-route compatibility
-- Separate CLI management session and Agent token; stdio MCP cannot inherit management access
+- Separate internal CLI login and scoped connection credentials; stdio MCP cannot inherit
+  account-management access
 - Same-origin local startup, public HTTPS Compose and loopback override, health and protected metrics
 - Downloadable macOS/Linux arm64/x64 clients with bundled Node.js and dependency license notices
 - Conventional curl installer, integrity verification, persistent pairing, reinstall upgrades and

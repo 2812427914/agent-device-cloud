@@ -103,8 +103,9 @@ unavailable. Do not use this HTTP override as a public deployment.
 4. Choose capabilities (read, write, execution, or templates) and an independent approval policy
    (never, before changes/execution, before execution, or every device operation).
    `test.run` requires execution permission and a writable local root.
-5. Connect using OAuth MCP, or create an expiring Agent token (shown once) for CLI/SDK.
-   Revoke a token, MCP connection, grant or device from the console.
+5. Connect an OAuth MCP client, or sign in with `adc login` and run `adc connect <access>`.
+   ADC creates and stores the scoped CLI credential without asking you to copy it. Raw expiring
+   access keys remain available under advanced settings for SDKs and legacy clients.
 
 ### Manage connected devices and authorizations
 
@@ -134,6 +135,9 @@ adc-node roots add "/path/to/workspace" --label Workspace
 adc-node roots add "/path/to/another-folder" --read-only
 adc-node roots list
 adc-node roots remove root_id
+adc-node templates add test --root root_id --command "pnpm test"
+adc-node templates list
+adc-node templates remove test --root root_id
 adc-node access home
 adc-node access full
 adc-node access none
@@ -202,17 +206,16 @@ different domains.
 
 Command templates are local Node configuration entries, never remote command interpolation:
 
-```json
-{
-  "templateId": "test",
-  "rootId": "root_workspace",
-  "command": "pnpm test",
-  "timeoutMs": 300000,
-  "readOnly": false
-}
+```bash
+adc-node templates add test \
+  --root root_workspace \
+  --command "pnpm test" \
+  --timeout 300000
+adc-node templates list
+adc-node templates remove test --root root_workspace
 ```
 
-Add these entries to `templates` in `node.json`; the daemon reloads them automatically.
+The daemon reloads template changes automatically.
 `projectId` is optional and can limit a template to a project. `readOnly` is descriptive;
 it never grants execution on a read-only root or to a read-only Agent. Template parameters are
 currently rejected. Template commands must be available on the device's tool PATH. `rootId` in this
@@ -220,21 +223,29 @@ local configuration is an internal stable binding; public calls select the devic
 
 ## CLI, MCP, Skill and SDK
 
-Management login prompts for a hidden password. Its session is stored separately from Agent tokens:
+Sign in once to manage the account from the CLI:
 
 ```bash
-adc auth login --url https://devices.example.com --email you@example.com
-adc node list --session --json
-adc node pairing-code --json
-adc auth status --json
+adc login --url https://devices.example.com --email you@example.com
+adc device add --name "Work Mac" --json
+adc device list --json
+adc access create \
+  --name coding \
+  --devices "Work Mac" \
+  --folders all \
+  --capabilities run \
+  --approval writes \
+  --json
+adc connect coding --json
+adc status --json
 ```
 
-Import an Agent token using the hidden prompt, then call tools. Account and grant context are
-resolved from the token; a sole device is selected automatically. With multiple devices, add
-`--node NODE_ID` for execution. Optional project grants retain project placement:
+`adc connect` creates an expiring scoped connection and stores it locally without printing its
+secret. Account and access context are resolved automatically. A sole device is selected
+automatically; with multiple devices, add `--node NODE_ID`. Optional projects retain project
+placement:
 
 ```bash
-adc auth token --url https://devices.example.com
 adc node list --json
 adc invoke file.read --node node_example --args '{"path":"/Users/me/work/README.md"}' --json
 adc invoke file.write --node node_example \
@@ -247,12 +258,15 @@ adc task status <job-id> --json
 adc artifact get <artifact-id> --output ./artifact.log --json
 adc audit show <invocation-id> --json
 adc mcp
-adc auth logout
+adc logout
 ```
 
-For automation use `ADC_URL` + `ADC_TOKEN`, or import with `adc auth token --url URL --stdin`.
-Use `--password-stdin` for noninteractive management login. Do not put secrets in command arguments.
-Tool invocation and stdio MCP never inherit the user's management session.
+Device policy, access, connection, project and approval management are available through
+`adc device`, `adc access`, `adc connection`, `adc project` and `adc approval`; run `adc --help`
+for their machine-readable forms. For advanced headless integrations, use `ADC_URL` + `ADC_TOKEN`,
+or import an access key with `adc auth token --url URL --stdin`. Use `--password-stdin` for
+noninteractive login. Do not put secrets in command arguments. Tool invocation and stdio MCP never
+inherit the user's account login.
 
 Remote MCP uses `https://devices.example.com/mcp`: OAuth discovery → registration → login →
 explicit grant selection → PKCE code exchange. Access tokens are resource-bound, short-lived and

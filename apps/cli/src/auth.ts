@@ -54,11 +54,11 @@ export async function loadAgent(): Promise<AgentConfig> {
     return { url: serverURL(process.env.ADC_URL), token: process.env.ADC_TOKEN };
   }
   const disk = await readFile(configPath, "utf8").catch(() => {
-    throw new Error("Create an agent token in the console, then run adc auth token --url URL.");
+    throw new Error("Agent connection is unavailable. Sign in and run adc connect ACCESS.");
   });
   const config = AgentConfigSchema.safeParse(JSON.parse(disk));
   if (!config.success)
-    throw new Error("Legacy CLI configuration is unsupported. Run adc auth token --url URL again.");
+    throw new Error("Agent connection is invalid. Sign in and run adc connect ACCESS.");
   return { ...config.data, url: serverURL(config.data.url) };
 }
 
@@ -119,14 +119,14 @@ export async function signIn(url: string, email: string, password: string) {
   const me = await new AdcClient(url, { cookie }).me();
   if (me.kind !== "session") throw new Error("Expected a user session.");
   await save(sessionPath, config);
-  return { authenticated: true, kind: me.kind, user: me.user, url };
+  return { loggedIn: true, user: me.user, url };
 }
 
 export async function importToken(url: string, token: string) {
   const me = await new AdcClient(url, token).me();
-  if (me.kind !== "agent") throw new Error("Only scoped agent tokens can be imported.");
+  if (me.kind !== "agent") throw new Error("Only scoped Agent access keys can be imported.");
   await save(configPath, { url, token });
-  return { authenticated: true, kind: "agent", name: me.grant.name, context: me.context, url };
+  return { connected: true, access: me.grant.name, context: me.context, url };
 }
 
 export async function authStatus() {
@@ -137,12 +137,18 @@ export async function authStatus() {
         config.url,
         "token" in config ? config.token : { cookie: config.cookie }
       ).me();
-      return { authenticated: true, url: config.url, ...me };
+      return me.kind === "session"
+        ? { authenticated: true, url: config.url, user: me.user }
+        : {
+            authenticated: true,
+            url: config.url,
+            access: { id: me.context.grantId, name: me.grant.name }
+          };
     } catch (error) {
-      return { kind, authenticated: false, message: (error as Error).message };
+      return { authenticated: false, message: (error as Error).message };
     }
   };
-  return { session: await inspect("session"), agent: await inspect("agent") };
+  return { login: await inspect("session"), connection: await inspect("agent") };
 }
 
 export async function signOut() {
@@ -169,7 +175,6 @@ export async function signOut() {
   return {
     signedOut: true,
     sessionRevoked,
-    message:
-      "Local credentials removed. Revoke agent tokens in the console to disconnect other copies."
+    message: "Local login and connection removed. Revoke other connections from your account."
   };
 }

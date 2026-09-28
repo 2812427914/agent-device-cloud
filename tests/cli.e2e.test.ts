@@ -7,7 +7,9 @@ import { dirname, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PostgresMemoryServer } from "postgres-memory-server";
 import type { FastifyInstance } from "fastify";
+import { NodeApiClient, generateNodeKeyPair } from "../packages/client/src/index.ts";
 import { IdentityStore, PostgresStore } from "../packages/db/src/index.ts";
+import { CapabilitySchema } from "../packages/protocol/src/index.ts";
 import { createAuthentication } from "../apps/control-plane/src/auth.ts";
 import { createAccessService } from "../apps/control-plane/src/access.ts";
 import { createControlPlane } from "../apps/control-plane/src/app.ts";
@@ -126,8 +128,7 @@ describe("public signup and CLI authentication over HTTP", () => {
     expect(login.code, login.stderr).toBe(0);
     expect(login.stdout).not.toContain(password);
     expect(JSON.parse(login.stdout)).toMatchObject({
-      authenticated: true,
-      kind: "session",
+      loggedIn: true,
       user: { email }
     });
     const sessionPath = resolve(directory, "config.json.session");
@@ -136,48 +137,149 @@ describe("public signup and CLI authentication over HTTP", () => {
     expect(saved.cookie).toContain("adc.session_token=");
     const noAgent = await command(["mcp"]);
     expect(noAgent.code).not.toBe(0);
-    expect(noAgent.stderr).toContain("agent token");
-    const pair = await command(["node", "pairing-code", "--json"]);
+    expect(noAgent.stderr).toContain("Agent connection");
+    const pair = await command(["device", "add", "--name", "CLI Mac", "--json"]);
     expect(pair.code, pair.stderr).toBe(0);
-    expect(JSON.parse(pair.stdout).code).toBeTruthy();
-    const project = await post("/api/v1/projects", { label: "CLI project" }, saved.cookie);
-    const grant = await post(
-      "/api/v1/grants",
-      {
-        projectId: project.body.projectId,
-        name: "CLI reader",
-        profile: "read-only",
-        nodeIds: [],
-        rootIds: [],
-        allowedTools: ["device.list"]
-      },
-      saved.cookie
-    );
-    const credential = await post(
-      "/api/v1/credentials",
-      { grantId: grant.body.grantId, name: "CLI" },
-      saved.cookie
-    );
-    const token = credential.body.token;
-    const imported = await command(
-      ["auth", "token", "--url", origin, "--stdin", "--json"],
-      `${token}\n`
-    );
-    expect(imported.code, imported.stderr).toBe(0);
-    expect(imported.stdout).not.toContain(token);
-    expect((await stat(resolve(directory, "config.json"))).mode & 0o777).toBe(0o600);
-    expect(JSON.parse(await readFile(resolve(directory, "config.json"), "utf8"))).toEqual({
-      url: origin,
-      token
+    expect(JSON.parse(pair.stdout)).toMatchObject({
+      schemaVersion: "0.1",
+      installCommand: expect.stringContaining("--label 'CLI Mac'")
     });
+    const pairing = await command(["node", "pairing-code", "--json"]);
+    const keys = generateNodeKeyPair();
+    const paired = await new NodeApiClient(origin, undefined, keys.privateKey).pair({
+      code: JSON.parse(pairing.stdout).code,
+      label: "Connected Mac",
+      platform: "darwin",
+      publicKey: keys.publicKey
+    });
+    await new NodeApiClient(origin, paired.nodeId, keys.privateKey).poll(
+      CapabilitySchema.parse({
+        schemaVersion: "0.1",
+        nodeId: paired.nodeId,
+        platform: "darwin",
+        accessMode: "selected",
+        nodeVersion: "0.1.0",
+        advertisedAt: new Date().toISOString(),
+        roots: [
+          {
+            rootId: "root_workspace",
+            path: "/workspace",
+            label: "Workspace",
+            writable: true
+          }
+        ],
+        tools: ["device.list", "file.read", "file.write"].map((name) => ({
+          name,
+          version: "0.1.0",
+          risk: name === "file.write" ? "write" : "read",
+          sandboxProfiles: ["restricted-process"]
+        }))
+      })
+    );
+    const devices = await command(["device", "list", "--json"]);
+    expect(devices.code, devices.stderr).toBe(0);
+    expect(JSON.parse(devices.stdout).devices).toContainEqual(
+      expect.objectContaining({ id: paired.nodeId, name: "Connected Mac", online: true })
+    );
+    expect(devices.stdout).not.toContain("publicKey");
+    const deviceUpdated = await command([
+      "device",
+      "update",
+      "Connected Mac",
+      "--name",
+      "CLI Mac",
+      "--folders",
+      "/workspace",
+      "--read-only",
+      "/workspace",
+      "--execution",
+      "off",
+      "--json"
+    ]);
+    expect(deviceUpdated.code, deviceUpdated.stderr).toBe(0);
+    expect(JSON.parse(deviceUpdated.stdout).device).toMatchObject({
+      id: paired.nodeId,
+      name: "CLI Mac",
+      revision: 2,
+      policy: {
+        rootAccess: "selected",
+        rootIds: ["root_workspace"],
+        readOnlyRootIds: ["root_workspace"],
+        allowExecution: false
+      }
+    });
+    const project = await command(["project", "create", "--name", "CLI project", "--json"]);
+    expect(project.code, project.stderr).toBe(0);
+    expect(JSON.parse(project.stdout).project.name).toBe("CLI project");
+    const access = await command([
+      "access",
+      "create",
+      "--name",
+      "CLI reader",
+      "--devices",
+      "CLI Mac",
+      "--folders",
+      "/workspace",
+      "--tools",
+      "device.list",
+      "--json"
+    ]);
+    expect(access.code, access.stderr).toBe(0);
+    const accessId = JSON.parse(access.stdout).access.id;
+    const connected = await command([
+      "connect",
+      "CLI reader",
+      "--name",
+      "CLI test connection",
+      "--expires",
+      "7",
+      "--json"
+    ]);
+    expect(connected.code, connected.stderr).toBe(0);
+    expect(JSON.parse(connected.stdout)).toMatchObject({
+      connected: true,
+      access: { id: accessId, name: "CLI reader" },
+      connection: { name: "CLI test connection" }
+    });
+    expect(connected.stdout).not.toContain("adc_");
+    const agentConfig = JSON.parse(await readFile(resolve(directory, "config.json"), "utf8"));
+    expect(agentConfig).toMatchObject({ url: origin });
+    expect(agentConfig.token).toMatch(/^adc_/);
+    expect((await stat(resolve(directory, "config.json"))).mode & 0o777).toBe(0o600);
+    const accessUpdated = await command([
+      "access",
+      "update",
+      accessId,
+      "--name",
+      "CLI reader updated",
+      "--json"
+    ]);
+    expect(accessUpdated.code, accessUpdated.stderr).toBe(0);
+    expect(JSON.parse(accessUpdated.stdout).access).toMatchObject({
+      id: accessId,
+      name: "CLI reader updated",
+      revision: 2
+    });
+    const listedAccess = await command(["access", "list", "--json"]);
+    expect(JSON.parse(listedAccess.stdout).access).toContainEqual(
+      expect.objectContaining({ id: accessId, name: "CLI reader updated" })
+    );
+    const connections = await command(["connection", "list", "--json"]);
+    expect(connections.code, connections.stderr).toBe(0);
+    const connection = JSON.parse(connections.stdout).connections.find(
+      (item: { name?: string }) => item.name === "CLI test connection"
+    );
+    expect(connection).toMatchObject({ type: "cli", accessId, status: "active" });
     const nodes = await command(["node", "list", "--json"]);
     expect(nodes.code, nodes.stderr).toBe(0);
-    expect(JSON.parse(nodes.stdout).nodes).toEqual([]);
+    expect(JSON.parse(nodes.stdout).nodes).toContainEqual(
+      expect.objectContaining({ nodeId: paired.nodeId, label: "CLI Mac" })
+    );
     const status = await command(["auth", "status", "--json"]);
     expect(status.code, status.stderr).toBe(0);
     expect(JSON.parse(status.stdout)).toMatchObject({
-      session: { authenticated: true },
-      agent: { authenticated: true }
+      login: { authenticated: true },
+      connection: { authenticated: true }
     });
     const adminInvoke = await command(["invoke", "device.list", "--session"]);
     expect(adminInvoke.code).not.toBe(0);
@@ -188,6 +290,11 @@ describe("public signup and CLI authentication over HTTP", () => {
     });
     expect(sessions.status).toBe(200);
     expect(((await sessions.json()) as unknown[]).length).toBeGreaterThan(0);
+    const revoked = await command(["connection", "revoke", connection.id, "--yes", "--json"]);
+    expect(revoked.code, revoked.stderr).toBe(0);
+    expect(JSON.parse(revoked.stdout)).toMatchObject({ revoked: true, id: connection.id });
+    const revokedAgent = await command(["node", "list", "--json"]);
+    expect(revokedAgent.code).not.toBe(0);
     const logout = await command(["auth", "logout", "--json"]);
     expect(logout.code, logout.stderr).toBe(0);
     expect((await fetch(`${origin}/api/v1/me`, { headers: { cookie: saved.cookie } })).status).toBe(

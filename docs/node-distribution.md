@@ -36,6 +36,9 @@ adc-node roots add "/path/to/workspace" --label Workspace
 adc-node roots add "/path/to/docs" --read-only
 adc-node roots list
 adc-node roots remove root_id
+adc-node templates add test --root root_id --command "pnpm test"
+adc-node templates list
+adc-node templates remove test --root root_id
 adc-node mcp list
 adc-node access home
 adc-node access full
@@ -45,9 +48,9 @@ adc-node access none
 `roots add` in none/selected mode preserves existing selected folders. Switching from home/full to
 selected folders should first use `adc-node access none`, then add the intended directories.
 `access full` uses current OS-user permissions without ADC's command/protected-file filtering; it
-does not elevate privileges. Approval and Agent capabilities remain separate. Edits to
-`~/.config/adc/node.json`, including templates, also reload automatically. Invalid config prevents
-new work; removing/downgrading access cancels affected running work.
+does not elevate privileges. Approval and Agent capabilities remain separate. Template changes made
+with `adc-node templates add|list|remove` reload automatically. Invalid config prevents new work;
+removing/downgrading access cancels affected running work.
 Repeat installation preserves updated roots/access even if an old command has stale directory flags.
 
 Local MCP Providers are managed with `adc-node mcp add|list|remove`. Stdio Providers receive

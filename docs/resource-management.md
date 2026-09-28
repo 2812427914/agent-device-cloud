@@ -1,7 +1,20 @@
 # Device and Agent authorization management
 
-The console provides device management and in-place grant editing. Devices and grants retain
-stable IDs, while an integer revision protects against concurrent lost updates.
+The console and authenticated `adc` CLI provide device management and in-place access editing.
+Devices and access records retain stable IDs, while an integer revision protects against concurrent
+lost updates.
+
+```bash
+adc login --url https://devices.example.com --email you@example.com
+adc device add --name "Work Mac" --json
+adc device update "Work Mac" --folders all --execution on --json
+adc access create --name coding --devices "Work Mac" --capabilities run --approval writes --json
+adc connect coding --json
+```
+
+CLI commands accept exact IDs or unambiguous names. `adc connect` creates and stores a scoped
+connection without printing its secret. Raw access keys remain an advanced compatibility path for
+SDKs and non-OAuth clients.
 
 ## Device controls
 
@@ -44,9 +57,9 @@ ACK and lease renewal. Cancelled tasks are reported as cancelled through the tas
 
 ## API and migration
 
-All routes require an account-owner session and same-origin mutations; Agent tokens cannot manage
-their own permissions. Foreign or deleted resources return 404. Stale revisions, revoked edits and
-duplicate device names return 409.
+All routes require an account login and same-origin mutations; scoped Agent connections cannot
+manage their own permissions. Foreign or deleted resources return 404. Stale revisions, revoked
+edits and duplicate device names return 409.
 
 | Route                            | Payload                                    |
 | -------------------------------- | ------------------------------------------ |

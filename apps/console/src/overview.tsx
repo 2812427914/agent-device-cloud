@@ -140,7 +140,7 @@ export function Overview({
     },
     {
       title: "Client connected",
-      description: "Create a token or connect an MCP client.",
+      description: "Connect the CLI or an MCP client.",
       complete: clientConnections > 0,
       to: "/app/agents"
     }

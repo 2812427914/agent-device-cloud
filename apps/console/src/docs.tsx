@@ -240,9 +240,7 @@ function Quickstart() {
           <div>
             <h2>{t("Connect a client")}</h2>
             <p>
-              {t(
-                "Use OAuth MCP when available, or create an expiring Agent token for CLI and SDK access."
-              )}
+              {t("Use OAuth MCP when available, or run adc connect after signing in to the CLI.")}
             </p>
           </div>
         </li>
@@ -355,7 +353,7 @@ function Concepts() {
     ],
     [
       "Agent authorization",
-      "An Agent grant selects devices, folders and tools. Existing tokens always use the latest saved grant."
+      "Agent access selects devices, folders and tools. Existing connections always use the latest saved settings."
     ],
     [
       "Approval policy",
@@ -706,14 +704,14 @@ function Integrations() {
         </p>
         <CodeBlock label="MCP URL">{`${origin}/mcp`}</CodeBlock>
       </Section>
-      <Section id="token-mcp" title={t("Token-based MCP")}>
+      <Section id="token-mcp" title={t("Access-key MCP")}>
         <CodeBlock label="mcp.json">
           {JSON.stringify(
             {
               mcpServers: {
                 adc: {
                   url: `${origin}/mcp`,
-                  headers: { Authorization: "Bearer <AGENT_TOKEN>" }
+                  headers: { Authorization: "Bearer <ACCESS_KEY>" }
                 }
               }
             },
@@ -724,7 +722,9 @@ function Integrations() {
       </Section>
       <Section id="cli" title={t("Command line")}>
         <CodeBlock label="adc">
-          {`adc auth token --url ${origin}
+          {`adc login --url ${origin} --email you@example.com
+adc access list --json
+adc connect ACCESS
 adc node list --json
 adc invoke file.read --node node_example \\
   --args '{"path":"/Users/me/work/README.md"}' --json`}
@@ -822,9 +822,9 @@ function Security() {
   const { t } = useI18n();
   const controls: Array<[Message, Message, Message]> = [
     [
-      "Stolen Agent token",
-      "Tokens are hashed, expire and bind to one revocable authorization.",
-      "A copied bearer token remains usable until it expires or is revoked."
+      "Stolen access key",
+      "Access keys are hashed, expire and bind to one revocable authorization.",
+      "A copied access key remains usable until it expires or is revoked."
     ],
     [
       "Compromised device key",
@@ -1062,7 +1062,7 @@ function Roadmap() {
         "Personal accounts, email and GitHub sign-in",
         "macOS and glibc Linux connectors for arm64 and x64",
         "Scoped Agent grants, approvals, audit and durable receipts",
-        "MCP OAuth, Agent tokens, CLI, SDK and official Skill",
+        "MCP OAuth, CLI connections, SDK and official Skill",
         "Hosted public preview and the same application for self-hosted deployment"
       ]
     },

@@ -36,6 +36,109 @@ export interface InvocationContext {
   rootIds: string[];
 }
 
+export type AccessProfile = "read-only" | "workspace-write" | "approve-required" | "unattended";
+export type ApprovalPolicy = "never" | "writes" | "execute" | "always";
+
+export interface NodeAccessPolicy {
+  rootAccess: "selected" | "all";
+  rootIds: string[];
+  readOnlyRootIds: string[];
+  allowExecution: boolean;
+}
+
+export interface ManagedNode {
+  nodeId: string;
+  accountId: string;
+  label: string;
+  platform: "darwin" | "linux";
+  status: "active" | "revoked";
+  accessPolicy?: NodeAccessPolicy;
+  revision?: number;
+  capability?: CapabilityAdvertisement;
+  effectiveCapability?: CapabilityAdvertisement;
+  lastSeenAt?: string;
+  createdAt: string;
+  deletedAt?: string;
+  online: boolean;
+}
+
+export interface AccessSettings {
+  name: string;
+  projectId?: string;
+  profile: AccessProfile;
+  nodeIds: string[];
+  rootAccess: "selected" | "all";
+  rootIds: string[];
+  approvalPolicy?: ApprovalPolicy;
+  allowedTools: ToolId[];
+}
+
+export interface AgentAccess extends AccessSettings {
+  grantId: string;
+  accountId: string;
+  actorId: string;
+  revision?: number;
+  createdAt: string;
+  revokedAt?: string;
+  deletedAt?: string;
+  resourcesByNode?: Record<string, Array<{ rootId: string; path?: string }>>;
+}
+
+export interface CliConnection {
+  credentialId: string;
+  accountId: string;
+  grantId: string;
+  name: string;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface OAuthConnection {
+  clientId: string;
+  grantId: string;
+  createdAt: string;
+  revokedAt: string | null;
+}
+
+export interface Project {
+  projectId: string;
+  accountId: string;
+  label: string;
+  createdAt: string;
+}
+
+export interface ProjectRoot {
+  rootId: string;
+  projectId: string;
+  nodeId: string;
+  path?: string;
+  label: string;
+  writable: boolean;
+  createdAt: string;
+}
+
+export interface PendingApproval {
+  approvalId: string;
+  accountId: string;
+  invocation: Invocation;
+  nodeId: string;
+  path?: string;
+  placementReason: string;
+  status: "pending" | "approved" | "denied" | "expired";
+  createdAt: string;
+  expiresAt: string;
+  resolvedAt?: string;
+}
+
+export interface NodeInstallation {
+  available: boolean;
+  controlPlaneUrl?: string;
+  downloadUrl?: string;
+  installerUrl?: string;
+}
+
 export function defaultTarget(context: InvocationContext, tool?: string): Invocation["target"] {
   if (context.projectId) return { projectId: context.projectId };
   const nodes = context.nodeIds ?? [];
@@ -194,14 +297,66 @@ export class AdcClient {
     return (await this.request("/api/v1/me")) as Awaited<ReturnType<AdcClient["me"]>>;
   }
 
-  async listNodes(): Promise<unknown[]> {
-    const response = (await this.request("/api/v1/nodes")) as { nodes: unknown[] };
+  async listNodes(): Promise<ManagedNode[]> {
+    const response = (await this.request("/api/v1/nodes")) as { nodes: ManagedNode[] };
     return response.nodes;
   }
 
-  async listProjects(): Promise<unknown[]> {
-    const response = (await this.request("/api/v1/projects")) as { projects: unknown[] };
+  async nodeInstallation(): Promise<NodeInstallation> {
+    return (await this.request("/api/v1/node-installation")) as NodeInstallation;
+  }
+
+  async updateNode(
+    nodeId: string,
+    input: { revision: number; label: string; accessPolicy: NodeAccessPolicy }
+  ): Promise<ManagedNode> {
+    return (await this.request(`/api/v1/nodes/${encodeURIComponent(nodeId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(input)
+    })) as ManagedNode;
+  }
+
+  async revokeNode(nodeId: string): Promise<{ revoked: true; nodeId: string }> {
+    return (await this.request(`/api/v1/nodes/${encodeURIComponent(nodeId)}/revoke`, {
+      method: "POST",
+      body: "{}"
+    })) as { revoked: true; nodeId: string };
+  }
+
+  async deleteNode(nodeId: string, revision: number): Promise<{ deleted: true }> {
+    return (await this.request(`/api/v1/nodes/${encodeURIComponent(nodeId)}`, {
+      method: "DELETE",
+      body: JSON.stringify({ revision })
+    })) as { deleted: true };
+  }
+
+  async listProjects(): Promise<Project[]> {
+    const response = (await this.request("/api/v1/projects")) as { projects: Project[] };
     return response.projects;
+  }
+
+  async createProject(input: { projectId?: string; label: string }): Promise<Project> {
+    return (await this.request("/api/v1/projects", {
+      method: "POST",
+      body: JSON.stringify(input)
+    })) as Project;
+  }
+
+  async listProjectRoots(projectId: string): Promise<ProjectRoot[]> {
+    const response = (await this.request(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/roots`
+    )) as { roots: ProjectRoot[] };
+    return response.roots;
+  }
+
+  async addProjectRoot(
+    projectId: string,
+    input: { rootId: string; nodeId: string; label: string; writable: boolean }
+  ): Promise<ProjectRoot> {
+    return (await this.request(`/api/v1/projects/${encodeURIComponent(projectId)}/roots`, {
+      method: "POST",
+      body: JSON.stringify(input)
+    })) as ProjectRoot;
   }
 
   async createPairingCode(ttlSeconds = 600): Promise<{ code: string; expiresAt: string }> {
@@ -209,6 +364,83 @@ export class AdcClient {
       method: "POST",
       body: JSON.stringify({ ttlSeconds })
     })) as { code: string; expiresAt: string };
+  }
+
+  async listAccess(): Promise<AgentAccess[]> {
+    const response = (await this.request("/api/v1/grants")) as { grants: AgentAccess[] };
+    return response.grants;
+  }
+
+  async createAccess(
+    input: AccessSettings & { grantId?: string; actorId?: string }
+  ): Promise<AgentAccess> {
+    return (await this.request("/api/v1/grants", {
+      method: "POST",
+      body: JSON.stringify(input)
+    })) as AgentAccess;
+  }
+
+  async updateAccess(
+    grantId: string,
+    input: AccessSettings & { revision: number }
+  ): Promise<AgentAccess> {
+    return (await this.request(`/api/v1/grants/${encodeURIComponent(grantId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(input)
+    })) as AgentAccess;
+  }
+
+  async revokeAccess(grantId: string): Promise<{ revoked: true }> {
+    return (await this.request(`/api/v1/grants/${encodeURIComponent(grantId)}/revoke`, {
+      method: "POST",
+      body: "{}"
+    })) as { revoked: true };
+  }
+
+  async deleteAccess(grantId: string, revision: number): Promise<{ deleted: true }> {
+    return (await this.request(`/api/v1/grants/${encodeURIComponent(grantId)}`, {
+      method: "DELETE",
+      body: JSON.stringify({ revision })
+    })) as { deleted: true };
+  }
+
+  async listConnections(): Promise<CliConnection[]> {
+    const response = (await this.request("/api/v1/credentials")) as {
+      credentials: CliConnection[];
+    };
+    return response.credentials;
+  }
+
+  async createConnection(input: {
+    name: string;
+    grantId: string;
+    expiresInDays?: number;
+  }): Promise<{ credential: CliConnection; token: string }> {
+    return (await this.request("/api/v1/credentials", {
+      method: "POST",
+      body: JSON.stringify(input)
+    })) as { credential: CliConnection; token: string };
+  }
+
+  async revokeConnection(credentialId: string): Promise<{ revoked: true }> {
+    return (await this.request(`/api/v1/credentials/${encodeURIComponent(credentialId)}/revoke`, {
+      method: "POST",
+      body: "{}"
+    })) as { revoked: true };
+  }
+
+  async listOAuthConnections(): Promise<OAuthConnection[]> {
+    const response = (await this.request("/api/v1/oauth/bindings")) as {
+      bindings: OAuthConnection[];
+    };
+    return response.bindings;
+  }
+
+  async revokeOAuthConnection(clientId: string): Promise<{ revoked: true }> {
+    return (await this.request("/api/v1/oauth/bindings/revoke", {
+      method: "POST",
+      body: JSON.stringify({ clientId })
+    })) as { revoked: true };
   }
 
   async invoke(input: Invocation): Promise<InvocationResult> {
@@ -239,9 +471,9 @@ export class AdcClient {
     return response.events;
   }
 
-  async listApprovals(): Promise<unknown[]> {
+  async listApprovals(): Promise<PendingApproval[]> {
     const response = (await this.request("/api/v1/approvals")) as {
-      approvals: unknown[];
+      approvals: PendingApproval[];
     };
     return response.approvals;
   }

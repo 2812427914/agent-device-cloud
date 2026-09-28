@@ -9,6 +9,7 @@ import { NodeDaemon } from "./daemon.ts";
 import {
   ConfigSchema,
   AccessModeSchema,
+  CommandTemplateSchema,
   ControlPlaneUrlSchema,
   McpProviderConfigSchema,
   accessRoots,
@@ -35,6 +36,10 @@ Usage:
   adc-node roots list
   adc-node roots add FOLDER [--root-id ID] [--label NAME] [--read-only]
   adc-node roots remove ROOT_ID
+  adc-node templates list
+  adc-node templates add TEMPLATE_ID --root ROOT_ID --command COMMAND
+                         [--timeout MILLISECONDS] [--project PROJECT_ID] [--read-only]
+  adc-node templates remove TEMPLATE_ID [--root ROOT_ID] [--project PROJECT_ID]
   adc-node mcp list
   adc-node mcp add PROVIDER_ID --stdio COMMAND [--name NAME] [--args JSON] [--env-file PATH] [--cwd PATH]
   adc-node mcp add PROVIDER_ID --http URL [--name NAME] [--headers-file PATH]
@@ -68,7 +73,11 @@ function argumentsMap(args: string[]): Map<string, string> {
     "env-file",
     "cwd",
     "http",
-    "headers-file"
+    "headers-file",
+    "root",
+    "command",
+    "timeout",
+    "project"
   ]);
   for (let index = 0; index < args.length; index++) {
     const key = args[index]?.replace(/^--/, "");
@@ -296,6 +305,61 @@ async function main(): Promise<void> {
         null,
         2
       )
+    );
+    return;
+  }
+  if (command === "templates") {
+    const config = await loadConfig();
+    const action = process.argv[3] ?? "list";
+    if (action === "list") {
+      console.log(JSON.stringify({ templates: config.templates }, null, 2));
+      return;
+    }
+    const templateId = process.argv[4];
+    if (!templateId) throw new Error("Supply a template ID.");
+    const args = argumentsMap(process.argv.slice(5));
+    const projectId = args.get("project");
+    const rootId = args.get("root");
+    if (action === "add") {
+      const selectedRootId = required(args, "root");
+      if (!config.roots.some((root) => root.rootId === selectedRootId))
+        throw new Error("Template folder is not exposed by this device.");
+      const template = CommandTemplateSchema.parse({
+        templateId,
+        rootId: selectedRootId,
+        command: required(args, "command"),
+        timeoutMs: Number(args.get("timeout") ?? 300_000),
+        readOnly: args.has("read-only"),
+        ...(projectId ? { projectId } : {})
+      });
+      const duplicate = config.templates.some(
+        (candidate) =>
+          candidate.templateId === template.templateId &&
+          candidate.rootId === template.rootId &&
+          candidate.projectId === template.projectId
+      );
+      if (duplicate) throw new Error("This template already exists.");
+      config.templates.push(template);
+    } else if (action === "remove") {
+      const matches = config.templates.filter(
+        (template) =>
+          template.templateId === templateId &&
+          (!rootId || template.rootId === rootId) &&
+          (!projectId || template.projectId === projectId)
+      );
+      if (!matches.length) throw new Error("Template was not found.");
+      if (matches.length > 1)
+        throw new Error("Template ID is ambiguous; add --root and optionally --project.");
+      const selected = matches[0]!;
+      config.templates = config.templates.filter((template) => template !== selected);
+    } else throw new Error("Use adc-node templates list|add|remove.");
+    await saveConfig(ConfigSchema.parse(config));
+    console.log(
+      JSON.stringify({
+        templateId,
+        action: action === "add" ? "added" : "removed",
+        reload: "automatic"
+      })
     );
     return;
   }

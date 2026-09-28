@@ -81,6 +81,30 @@ describe("connector folder management", () => {
       });
       expect(grant.statusCode).toBe(200);
       await run("roots", "add", rootPath, "--root-id", "root_hot", "--label", "Work");
+      await run(
+        "templates",
+        "add",
+        "test",
+        "--root",
+        "root_hot",
+        "--command",
+        "pnpm test",
+        "--timeout",
+        "120000"
+      );
+      expect(await run("templates", "list")).toEqual({
+        templates: [
+          {
+            templateId: "test",
+            rootId: "root_hot",
+            command: "pnpm test",
+            timeoutMs: 120000,
+            readOnly: false
+          }
+        ]
+      });
+      await run("templates", "remove", "test");
+      expect(await run("templates", "list")).toEqual({ templates: [] });
       const repeated = await promisify(execFile)(
         process.execPath,
         [

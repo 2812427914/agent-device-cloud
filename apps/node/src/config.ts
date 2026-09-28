@@ -59,6 +59,20 @@ export const McpProviderConfigSchema = z.discriminatedUnion("transport", [
 ]);
 export type McpProviderConfig = z.infer<typeof McpProviderConfigSchema>;
 
+export const CommandTemplateSchema = z
+  .object({
+    projectId: z
+      .string()
+      .regex(/^proj_[a-z0-9][a-z0-9_-]{2,127}$/)
+      .optional(),
+    templateId: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,127}$/),
+    rootId: RootIdSchema,
+    command: z.string().trim().min(1).max(16_384),
+    timeoutMs: z.number().int().min(1_000).max(3_600_000),
+    readOnly: z.boolean()
+  })
+  .strict();
+
 export const ConfigSchema = z
   .object({
     controlPlaneUrl: ControlPlaneUrlSchema,
@@ -80,20 +94,7 @@ export const ConfigSchema = z
           .strict()
       )
       .max(64),
-    templates: z
-      .array(
-        z
-          .object({
-            projectId: z.string().optional(),
-            templateId: z.string(),
-            rootId: z.string(),
-            command: z.string(),
-            timeoutMs: z.number(),
-            readOnly: z.boolean()
-          })
-          .strict()
-      )
-      .default([]),
+    templates: z.array(CommandTemplateSchema).max(128).default([]),
     mcpProviders: z.array(McpProviderConfigSchema).max(32).default([])
   })
   .strict()
@@ -108,6 +109,18 @@ export const ConfigSchema = z
         code: "custom",
         path: ["mcpProviders"],
         message: "MCP Provider IDs must be unique."
+      });
+    if (
+      new Set(
+        config.templates.map(
+          (template) => `${template.projectId ?? ""}:${template.rootId}:${template.templateId}`
+        )
+      ).size !== config.templates.length
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["templates"],
+        message: "Template IDs must be unique within a project and folder."
       });
     if (config.accessMode === "none" && config.roots.length)
       context.addIssue({
