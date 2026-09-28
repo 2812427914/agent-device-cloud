@@ -16,7 +16,7 @@ Node identity files, or call Node poll/receipt endpoints.
 ## Preconditions
 
 1. Run `adc status --json`. Account management requires the user to complete
-   `adc login --url <installation-origin> --email <email>`. Never request, receive or enter the
+   `adc login --url <installation-origin>` in their browser. Never request, receive or enter the
    user's password. Tool calls require a connection selected with `adc connect <access>`; this
    creates and stores the scoped credential without printing it.
 2. Use the device selected by the user. Access with one device selects it automatically; with

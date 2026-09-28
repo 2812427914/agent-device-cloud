@@ -22,7 +22,7 @@ describe("public signup and CLI authentication over HTTP", () => {
   const mails: { to: string; text: string }[] = [];
   const email = "cli-user@example.com";
   const password = "A long password for a real CLI process";
-  const command = (args: string[], input = "") =>
+  const command = (args: string[], input = "", onStderr?: (value: string) => void) =>
     new Promise<{ code: number | null; stdout: string; stderr: string }>(
       (resolveCommand, reject) => {
         const env = Object.fromEntries(
@@ -48,6 +48,7 @@ describe("public signup and CLI authentication over HTTP", () => {
         });
         child.stderr.on("data", (chunk) => {
           stderr += String(chunk);
+          onStderr?.(stderr);
         });
         child.on("error", reject);
         child.on("close", (code) => resolveCommand({ code, stdout, stderr }));
@@ -102,7 +103,7 @@ describe("public signup and CLI authentication over HTTP", () => {
     if (directory) await rm(directory, { recursive: true, force: true });
   });
 
-  it("verifies email, signs in without exposing a password, separates management from Agent execution and revokes logout", async () => {
+  it("verifies email, completes browser login, separates management from Agent execution and revokes logout", async () => {
     const signup = await post("/api/auth/sign-up/email", {
       name: "CLI user",
       email,
@@ -121,10 +122,31 @@ describe("public signup and CLI authentication over HTTP", () => {
     const verification = await fetch(verificationURL, { redirect: "manual" });
     expect(verification.status).toBe(302);
     expect(new URL(verification.headers.get("location")!, origin).pathname).toBe("/login");
-    const login = await command(
-      ["auth", "login", "--url", origin, "--email", email, "--password-stdin", "--json"],
-      `${password}\n`
+    const browser = await post("/api/auth/sign-in/email", { email, password });
+    expect(browser.response.status, JSON.stringify(browser.body)).toBe(200);
+    const browserCookie = browser.response.headers
+      .getSetCookie()
+      .map((value) => value.split(";")[0])
+      .join("; ");
+    let verificationUrl = "";
+    const loginPromise = command(
+      ["login", "--url", origin, "--no-open", "--json"],
+      "",
+      (stderr) => {
+        verificationUrl =
+          stderr.split("\n").find((line) => line.startsWith(`${origin}/cli-login?`)) ?? "";
+      }
     );
+    await expect.poll(() => verificationUrl, { timeout: 10_000 }).not.toBe("");
+    const userCode = new URL(verificationUrl).searchParams.get("user_code")!;
+    const claimed = await fetch(
+      `${origin}/api/auth/device?user_code=${encodeURIComponent(userCode)}`,
+      { headers: { cookie: browserCookie } }
+    );
+    expect(claimed.status, await claimed.clone().text()).toBe(200);
+    const approved = await post("/api/auth/device/approve", { userCode }, browserCookie);
+    expect(approved.response.status, JSON.stringify(approved.body)).toBe(200);
+    const login = await loginPromise;
     expect(login.code, login.stderr).toBe(0);
     expect(login.stdout).not.toContain(password);
     expect(JSON.parse(login.stdout)).toMatchObject({
@@ -134,7 +156,7 @@ describe("public signup and CLI authentication over HTTP", () => {
     const sessionPath = resolve(directory, "config.json.session");
     expect((await stat(sessionPath)).mode & 0o777).toBe(0o600);
     const saved = JSON.parse(await readFile(sessionPath, "utf8"));
-    expect(saved.cookie).toContain("adc.session_token=");
+    expect(saved).toMatchObject({ url: origin, token: expect.any(String) });
     const noAgent = await command(["mcp"]);
     expect(noAgent.code).not.toBe(0);
     expect(noAgent.stderr).toContain("Agent connection");
@@ -283,10 +305,10 @@ describe("public signup and CLI authentication over HTTP", () => {
     });
     const adminInvoke = await command(["invoke", "device.list", "--session"]);
     expect(adminInvoke.code).not.toBe(0);
-    const update = await post("/api/auth/update-user", { name: "Updated name" }, saved.cookie);
+    const update = await post("/api/auth/update-user", { name: "Updated name" }, browserCookie);
     expect(update.response.status, JSON.stringify(update.body)).toBe(200);
     const sessions = await fetch(`${origin}/api/auth/list-sessions`, {
-      headers: { cookie: saved.cookie }
+      headers: { cookie: browserCookie }
     });
     expect(sessions.status).toBe(200);
     expect(((await sessions.json()) as unknown[]).length).toBeGreaterThan(0);
@@ -297,9 +319,16 @@ describe("public signup and CLI authentication over HTTP", () => {
     expect(revokedAgent.code).not.toBe(0);
     const logout = await command(["auth", "logout", "--json"]);
     expect(logout.code, logout.stderr).toBe(0);
-    expect((await fetch(`${origin}/api/v1/me`, { headers: { cookie: saved.cookie } })).status).toBe(
-      401
-    );
+    expect(
+      (
+        await fetch(`${origin}/api/v1/me`, {
+          headers: { authorization: `Bearer ${saved.token}` }
+        })
+      ).status
+    ).toBe(401);
+    expect(
+      (await fetch(`${origin}/api/v1/me`, { headers: { cookie: browserCookie } })).status
+    ).toBe(200);
     await expect(stat(sessionPath)).rejects.toMatchObject({ code: "ENOENT" });
     await expect(stat(resolve(directory, "config.json"))).rejects.toMatchObject({ code: "ENOENT" });
   }, 60_000);

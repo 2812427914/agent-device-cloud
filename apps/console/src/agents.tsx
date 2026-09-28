@@ -279,7 +279,7 @@ export function Agents({
             </button>
           </div>
           <p className="hint">
-            <code>adc login --url {window.location.origin} --email you@example.com</code>
+            <code>adc login --url {window.location.origin}</code>
           </p>
         </div>
       ) : null}

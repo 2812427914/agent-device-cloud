@@ -5,6 +5,7 @@
 - One shared application for hosted and self-hosted installations
 - Better Auth email/password registration, login, email verification and password recovery
 - GitHub login and explicit account linking, verified provider emails and registration-closure enforcement
+- Browser-confirmed CLI login for GitHub or email accounts using short-lived device authorization
 - PostgreSQL-backed revocable user sessions, account settings and per-user resource isolation
 - Scoped Agent tokens with one-time display, hashes, expiration and revocation
 - OAuth authorization-code/PKCE, MCP resource discovery/audience, refresh rotation and grant consent
@@ -61,7 +62,7 @@
 
 ## Verified
 
-- 109 passing tests across 26 files on Node.js 22; one opt-in macOS service test skipped (110 total)
+- 110 passing tests across 26 files on Node.js 22; one opt-in macOS service test skipped (111 total)
 - Real PostgreSQL migration, concurrent `SKIP LOCKED` claims and restart persistence
 - Pairing/replay/revoke behavior
 - Symlink escape, secret redaction, command denial, timeout/cancel and output limits
@@ -70,7 +71,9 @@
 - CLI and official MCP SDK parity
 - End-to-end Agent MCP → Control Plane → Node → local MCP Provider execution and receipt persistence
 - Two-user API isolation, persisted login/restart, verification, password reset and session invalidation
-- CLI login/token import via real HTTP and child process; mode-0600 storage and authority separation
+- CLI password fallback/access-key import via real HTTP and child process; mode-0600 storage and
+  authority separation
+- CLI device authorization request, browser confirmation, one-time redemption and independent logout
 - OAuth PKCE/audience, refresh, revoke, reconnect and stale-code denial
 - GitHub private verified email, state/replay, callback origin, disabled signup, explicit linking and MCP continuation
 - Direct device CLI/Skill/official MCP parity, new all-folder discovery and fixed-folder restrictions

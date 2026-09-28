@@ -53,11 +53,88 @@ export function AuthLayout({ children, wide = false }: { children: ReactNode; wi
     </div>
   );
 }
+
+export function CliLogin({ request }: { request: Request }) {
+  const { t } = useI18n();
+  const location = useLocation();
+  const userCode = new URLSearchParams(location.search).get("user_code") ?? "";
+  const [status, setStatus] = useState<"loading" | "pending" | "approved" | "denied">("loading");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!userCode) {
+      setError(t("This CLI login request is invalid or expired."));
+      return;
+    }
+    request(`/api/auth/device?user_code=${encodeURIComponent(userCode)}`)
+      .then((result) => setStatus(result.status))
+      .catch((error) => setError(error.message));
+  }, [request, t, userCode]);
+  const decide = async (decision: "approve" | "deny") => {
+    setBusy(true);
+    setError("");
+    try {
+      await request(`/api/auth/device/${decision}`, {
+        method: "POST",
+        body: JSON.stringify({ userCode })
+      });
+      setStatus(decision === "approve" ? "approved" : "denied");
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <AuthLayout>
+      <h1>{t("Connect command line")}</h1>
+      {error ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {status === "loading" ? (
+        <p className="description" role="status">
+          {t("Checking this login request…")}
+        </p>
+      ) : status === "approved" ? (
+        <>
+          <p className="notice" role="status">
+            {t("CLI connected. You can close this tab.")}
+          </p>
+          <code>{userCode}</code>
+        </>
+      ) : status === "denied" ? (
+        <p className="description" role="status">
+          {t("CLI login denied. You can close this tab.")}
+        </p>
+      ) : (
+        <>
+          <p className="description">
+            {t("Confirm that this code matches the one shown in your terminal.")}
+          </p>
+          <div className="token-value">
+            <code>{userCode}</code>
+          </div>
+          <div className="row-actions">
+            <button className="primary" disabled={busy} onClick={() => void decide("approve")}>
+              {t("Connect CLI")}
+            </button>
+            <button className="secondary" disabled={busy} onClick={() => void decide("deny")}>
+              {t("Deny")}
+            </button>
+          </div>
+        </>
+      )}
+    </AuthLayout>
+  );
+}
+
 export function AuthPage({
   onLogin,
   currentUser
 }: {
-  onLogin: () => Promise<void>;
+  onLogin: (returnTo?: string) => Promise<void>;
   currentUser: User | null;
 }) {
   const { t } = useI18n();
@@ -71,6 +148,13 @@ export function AuthPage({
         .filter((part) => !/^(error|error_description)=/.test(part))
         .join("&")}`
     : "";
+  const requestedReturnTo = params.get("return_to");
+  const returnTo =
+    requestedReturnTo?.startsWith("/cli-login?") &&
+    !requestedReturnTo.includes("\\") &&
+    !requestedReturnTo.includes("\n")
+      ? requestedReturnTo
+      : undefined;
   const mode =
     location.pathname === "/register"
       ? "register"
@@ -96,7 +180,7 @@ export function AuthPage({
     setGithubPending(false);
     setVerificationEmail("");
   }, [location.pathname]);
-  const callbackURL = `${window.location.origin}${oauth ? `/login${oauthSearch}` : "/app"}`;
+  const callbackURL = `${window.location.origin}${oauth ? `/login${oauthSearch}` : (returnTo ?? "/app")}`;
   const continueOAuth = async (created = false) => {
     const result = await apiRequest("/api/auth/oauth2/continue", {
       method: "POST",
@@ -131,7 +215,9 @@ export function AuthPage({
           provider: "github",
           callbackURL,
           newUserCallbackURL: callbackURL,
-          errorCallbackURL: `${window.location.origin}/login${oauthSearch}`,
+          errorCallbackURL: `${window.location.origin}/login${
+            oauth ? oauthSearch : returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : ""
+          }`,
           disableRedirect: true
         })
       });
@@ -185,7 +271,7 @@ export function AuthPage({
           setVerificationEmail(email);
           setNotice("Check your email to verify your address and finish signing in.");
         } else if (oauth) await continueOAuth(mode === "register");
-        else await onLogin();
+        else await onLogin(returnTo);
       }
     });
   };

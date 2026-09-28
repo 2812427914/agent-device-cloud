@@ -244,16 +244,20 @@ export class AdcClient {
 
   constructor(
     baseUrl: string,
-    private readonly credential: string | { cookie: string },
+    private readonly credential: string | { cookie: string } | { sessionToken: string },
     private readonly fetcher: Fetch = fetch
   ) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
   }
 
   private headers(): Record<string, string> {
-    return typeof this.credential === "string"
-      ? { authorization: `Bearer ${this.credential}` }
-      : { cookie: this.credential.cookie, origin: new URL(this.baseUrl).origin };
+    if (typeof this.credential === "string") return { authorization: `Bearer ${this.credential}` };
+    if ("sessionToken" in this.credential)
+      return {
+        authorization: `Bearer ${this.credential.sessionToken}`,
+        origin: new URL(this.baseUrl).origin
+      };
+    return { cookie: this.credential.cookie, origin: new URL(this.baseUrl).origin };
   }
 
   private async request(path: string, init: RequestInit = {}): Promise<unknown> {

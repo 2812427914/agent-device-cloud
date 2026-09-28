@@ -37,6 +37,7 @@ import {
   AuthLayout,
   AuthPage,
   Brand,
+  CliLogin,
   apiRequest,
   type User,
   type Request
@@ -187,6 +188,13 @@ function App() {
     location.pathname
   );
   const oauth = new URLSearchParams(location.search).has("sig");
+  const requestedReturnTo = new URLSearchParams(location.search).get("return_to");
+  const returnTo =
+    requestedReturnTo?.startsWith("/cli-login?") &&
+    !requestedReturnTo.includes("\\") &&
+    !requestedReturnTo.includes("\n")
+      ? requestedReturnTo
+      : undefined;
   if (publicPage) {
     if (
       user &&
@@ -194,23 +202,33 @@ function App() {
       !oauth &&
       !new URLSearchParams(location.search).has("error")
     )
-      return <Navigate to="/app" replace />;
+      return <Navigate to={returnTo ?? "/app"} replace />;
     return (
       <AuthPage
         currentUser={user}
-        onLogin={async () => {
+        onLogin={async (destination) => {
           await loadUser();
           setError("");
-          await navigate("/app");
+          await navigate(destination ?? "/app");
         }}
       />
     );
   }
   if (!user)
     return (
-      <Navigate to={`/login${location.pathname === "/authorize" ? location.search : ""}`} replace />
+      <Navigate
+        to={
+          location.pathname === "/authorize"
+            ? `/login${location.search}`
+            : location.pathname === "/cli-login"
+              ? `/login?return_to=${encodeURIComponent(`/cli-login${location.search}`)}`
+              : "/login"
+        }
+        replace
+      />
     );
   if (location.pathname === "/authorize") return <OAuthConsent request={request} />;
+  if (location.pathname === "/cli-login") return <CliLogin request={request} />;
   const refresh = () => setRevision((value) => value + 1);
   const props = { request, revision, refresh, onError: setError };
   const navigation: [string, Message, ReactNode][] = [

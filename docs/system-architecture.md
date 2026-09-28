@@ -98,6 +98,37 @@ sequenceDiagram
 The pairing code is not a device credential. It is consumed once and replaced by a device-generated
 key pair. The private key never needs to reach the Control Plane.
 
+## CLI account login
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant CLI as adc CLI
+  participant Browser
+  participant CP as Control Plane
+  participant DB as PostgreSQL
+
+  CLI->>CP: Request short-lived device authorization
+  CP->>DB: Store device code and user code
+  CP-->>CLI: Verification URL + visible code
+  CLI-->>User: Open or print verification URL
+  User->>Browser: Sign in with GitHub or email
+  Browser->>CP: Claim request with account session
+  User->>Browser: Confirm matching code
+  Browser->>CP: Approve request
+  loop Until approved or expired
+    CLI->>CP: Poll with device code
+  end
+  CP->>DB: Create independent CLI session
+  CP-->>CLI: One-time session bearer
+  CLI->>CLI: Store mode-0600 login state
+```
+
+The browser session is never copied into the terminal. The one-time code is bound to the first
+signed-in user who opens it, expires after ten minutes and can be redeemed once. CLI management
+requests use the resulting revocable account session; device tool calls still use the separately
+scoped connection selected by `adc connect`.
+
 ## Invocation lifecycle
 
 ```mermaid

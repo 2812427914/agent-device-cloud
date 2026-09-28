@@ -5,7 +5,7 @@ Devices and access records retain stable IDs, while an integer revision protects
 lost updates.
 
 ```bash
-adc login --url https://devices.example.com --email you@example.com
+adc login --url https://devices.example.com
 adc device add --name "Work Mac" --json
 adc device update "Work Mac" --folders all --execution on --json
 adc access create --name coding --devices "Work Mac" --capabilities run --approval writes --json

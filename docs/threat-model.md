@@ -44,6 +44,7 @@ advertised-path boundaries, local writability, approvals, expiry, revocation and
 | Stolen pairing code                  | Random short-lived one-time code; atomic consumption                                                                                          | Attacker using it before the intended device can pair; user must revoke                                                  |
 | Replayed Node request                | Ed25519 signature over request, five-minute timestamp and durable nonce                                                                       | Compromised device private key remains valid until revoke                                                                |
 | Account/session compromise           | Better Auth password hashing, persistent rate limits, HttpOnly SameSite cookies, same-origin mutation checks, revocable sessions and reset    | Compromised user sessions can administer that user's account; protect mail and local CLI session storage                 |
+| CLI login code theft                 | Short expiry, first-user binding, visible code confirmation, fixed client/scope validation and one-time redemption                            | An attacker who steals both codes before confirmation can race the intended CLI; deny the request and retry              |
 | Agent targets another account/device | Account and grant checks precede placement; Agent tokens are hashed/expiring/revocable; management requires a user session                    | Execution authority remains the selected device OS user's authority                                                      |
 | OAuth code/token theft               | PKCE, resource audience, explicit grant consent, rotating refresh, per-binding generation and revocation                                      | DCR client names are unverified; CIMD/client certification is not implemented                                            |
 | Path traversal or symlink escape     | Canonical absolute-path validation, longest-root authorization, `realpath`, final-component `O_NOFOLLOW`, descriptor identity checks          | Portable Node APIs cannot eliminate all hostile parent-directory races or hard-link aliases                              |
@@ -77,6 +78,7 @@ database compromises the stored tokens.
 - Custom MCP tools absent from the selected device, missing an explicit target Node, or using cleartext non-loopback HTTP
 - Stale leases and mismatched receipts
 - User sessions used as Agent credentials, and Agent credentials used for management
+- Unknown CLI device clients/scopes and reused, denied or expired CLI login codes
 - Template execution through read-only grants/roots or through a different authorized root
 - `sudo`, system service control, environment dumps, root deletion and network clients in the default
   restricted-process profile
@@ -91,6 +93,7 @@ database compromises the stored tokens.
 - Secret redaction, output truncation and opaque artifact references
 - CLI/MCP/SDK adapter parity
 - Two-user account isolation, CSRF, password recovery, verification, session revocation
+- CLI device authorization ownership, CSRF, one-time redemption and browser/session separation
 - OAuth PKCE/audience, refresh rotation, grant/binding revocation and stale-code reconnect
 - Concurrent create-only writes, expired receipt reconciliation, lease-loss and shutdown cancellation
 - No-folder pairing, live scope reload, full trust, independent approvals and all/fixed-root grants

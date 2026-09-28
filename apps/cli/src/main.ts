@@ -13,6 +13,7 @@ import {
   readSecret,
   serverURL,
   signIn,
+  signInWithBrowser,
   signOut
 } from "./auth.ts";
 import { isManagementCommand, managementUsage, runManagementCommand } from "./management.ts";
@@ -20,7 +21,7 @@ import { updateClient } from "./update.ts";
 
 const usage = `Agent Device Cloud
 Usage:
-  adc login --url URL --email EMAIL
+  adc login --url URL [--email EMAIL] [--no-open]
   adc logout | status
   adc update [--check] [--force] [--download-url URL] [--no-service]
   adc device add|list|show|update|wait|revoke|remove
@@ -125,9 +126,14 @@ async function main(): Promise<void> {
 
   if (domain === "auth" && action === "login") {
     const url = serverURL(requiredFlag(flags, "url"));
-    const email = requiredFlag(flags, "email");
-    const password = await readSecret("Password", flags.has("password-stdin"));
-    print(await signIn(url, email, password), json);
+    const email = stringFlag(flags, "email");
+    if (email) {
+      const password = await readSecret("Password", flags.has("password-stdin"));
+      print(await signIn(url, email, password), json);
+    } else {
+      if (flags.has("password-stdin")) throw new Error("--password-stdin requires --email.");
+      print(await signInWithBrowser(url, flags.has("no-open")), json);
+    }
     return;
   }
   if (domain === "auth" && action === "token") {
@@ -162,10 +168,14 @@ async function main(): Promise<void> {
   if (flags.has("session") && !management)
     throw new Error("This command does not accept the account login. Use an Agent connection.");
   const config = management ? await loadSession() : await loadAgent();
-  const client = new AdcClient(
-    config.url,
-    "token" in config ? config.token : { cookie: config.cookie }
-  );
+  const credential = management
+    ? "cookie" in config
+      ? { cookie: config.cookie }
+      : { sessionToken: config.token }
+    : "token" in config
+      ? config.token
+      : { cookie: config.cookie };
+  const client = new AdcClient(config.url, credential);
 
   if (management) {
     const result = await runManagementCommand({

@@ -2,6 +2,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { github } from "better-auth/social-providers";
 import { APIError, createAuthEndpoint } from "better-auth/api";
+import { bearer } from "better-auth/plugins/bearer";
+import { deviceAuthorization } from "better-auth/plugins/device-authorization";
 import { getMigrations } from "better-auth/db/migration";
 import {
   getOAuthProviderApi,
@@ -188,6 +190,18 @@ export function createAuthentication(options: AuthenticationOptions) {
     },
     disabledPaths: ["/token"],
     plugins: [
+      bearer(),
+      deviceAuthorization({
+        expiresIn: "10m",
+        interval: "2s",
+        verificationUri: `${origin}/cli-login`,
+        validateClient: (clientId) => clientId === "adc-cli",
+        onDeviceAuthRequest: (_clientId, scope) => {
+          if (scope !== "adc:manage")
+            throw new APIError("BAD_REQUEST", { message: "Invalid CLI authorization scope." });
+        },
+        schema: { deviceCode: { modelName: "adc_auth_device_codes" } }
+      }),
       // Provider OpenAPI declarations explicitly include undefined on optional fields.
       // Intersect only the plugin contract to bridge upstream exactOptionalPropertyTypes.
       compatiblePlugin(oauthProvider(providerOptions)),
@@ -228,7 +242,12 @@ export function createAuthentication(options: AuthenticationOptions) {
       const url = new URL(request.url);
       if (
         request.method === "POST" &&
-        ["/api/auth/sign-in/social", "/api/auth/link-social"].includes(url.pathname)
+        [
+          "/api/auth/sign-in/social",
+          "/api/auth/link-social",
+          "/api/auth/device/approve",
+          "/api/auth/device/deny"
+        ].includes(url.pathname)
       ) {
         if (request.headers.get("origin") !== origin)
           return Response.json({ message: "A same-origin request is required." }, { status: 403 });

@@ -723,8 +723,13 @@ function Integrations() {
         </CodeBlock>
       </Section>
       <Section id="cli" title={t("Command line")}>
+        <p>
+          {t(
+            "Run adc login once and confirm the code in your browser. GitHub and email accounts use the same flow."
+          )}
+        </p>
         <CodeBlock label="adc">
-          {`adc login --url ${origin} --email you@example.com
+          {`adc login --url ${origin}
 adc access list --json
 adc connect ACCESS
 adc node list --json

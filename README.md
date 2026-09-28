@@ -226,7 +226,7 @@ local configuration is an internal stable binding; public calls select the devic
 Sign in once to manage the account from the CLI:
 
 ```bash
-adc login --url https://devices.example.com --email you@example.com
+adc login --url https://devices.example.com
 adc device add --name "Work Mac" --json
 adc device list --json
 adc access create \
@@ -240,10 +240,14 @@ adc connect coding --json
 adc status --json
 ```
 
-`adc connect` creates an expiring scoped connection and stores it locally without printing its
-secret. Account and access context are resolved automatically. A sole device is selected
-automatically; with multiple devices, add `--node NODE_ID`. Optional projects retain project
-placement:
+`adc login` opens a short-lived browser authorization page, so GitHub and email accounts use the
+same CLI flow. Confirm the code shown in both places; the resulting CLI login is independent from
+the browser session and can be revoked from Account settings. Use `--no-open` to print the URL
+without launching a browser. The legacy `--email you@example.com` form remains available for
+password accounts. `adc connect` creates an expiring scoped connection and stores it locally
+without printing its secret. Account and access context are resolved automatically. A sole device
+is selected automatically; with multiple devices, add `--node NODE_ID`. Optional projects retain
+project placement:
 
 ```bash
 adc node list --json

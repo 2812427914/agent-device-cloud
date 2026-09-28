@@ -160,7 +160,7 @@ export function Landing({ signedIn }: { signedIn: boolean }) {
   }, []);
   const snippets = {
     MCP: `${window.location.origin}/mcp`,
-    CLI: `adc login --url ${window.location.origin} --email you@example.com
+    CLI: `adc login --url ${window.location.origin}
 adc connect ACCESS
 adc node list --json
 adc invoke file.read --node node_example \\

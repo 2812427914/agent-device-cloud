@@ -97,14 +97,13 @@ export function createAccessService(
           return binding ? { kind: "agent", ...binding, clientId: claims.client_id } : undefined;
         }
         const credential = await identity.authenticateCredential(token);
-        return credential
-          ? {
-              kind: "agent",
-              accountId: credential.accountId,
-              grantId: credential.grantId,
-              credentialId: credential.credentialId
-            }
-          : undefined;
+        if (credential)
+          return {
+            kind: "agent",
+            accountId: credential.accountId,
+            grantId: credential.grantId,
+            credentialId: credential.credentialId
+          };
       }
       const session = await authentication.auth.api.getSession!({ headers: headersFor(request) });
       if (!session) return;

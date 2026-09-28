@@ -447,6 +447,8 @@ export const zh = {
     "优先使用 OAuth MCP，也可以创建有有效期的 Agent Token，供 CLI 和 SDK 使用。",
   "Use OAuth MCP when available, or run adc connect after signing in to the CLI.":
     "优先使用 OAuth MCP；使用 CLI 时，登录后运行 adc connect 即可。",
+  "Run adc login once and confirm the code in your browser. GitHub and email accounts use the same flow.":
+    "运行一次 adc login，并在浏览器确认验证码；GitHub 与邮箱账号使用同一流程。",
   "Verify access": "验证访问",
   "Start with device.list or file.list, then inspect Activity for the policy decision and receipt.":
     "先调用 device.list 或 file.list，再到「活动记录」检查策略决策和回执。",
@@ -770,6 +772,13 @@ export const zh = {
   "Revoke this access? Existing connections using it will stop working.":
     "撤销此授权？使用它的现有连接将停止工作。",
   "Connect CLI": "连接 CLI",
+  "Connect command line": "连接命令行",
+  "Checking this login request…": "正在检查登录请求…",
+  "CLI connected. You can close this tab.": "CLI 已连接，可以关闭此页面。",
+  "CLI login denied. You can close this tab.": "CLI 登录已拒绝，可以关闭此页面。",
+  "This CLI login request is invalid or expired.": "此 CLI 登录请求无效或已过期。",
+  "Confirm that this code matches the one shown in your terminal.":
+    "确认此验证码与终端中显示的一致。",
   "Sign in once in your terminal, then connect this access without copying a token.":
     "在终端登录一次，然后直接连接这份访问权限，无需复制 Token。",
   "Copy your access key": "复制访问密钥",
