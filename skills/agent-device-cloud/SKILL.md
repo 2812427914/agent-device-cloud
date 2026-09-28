@@ -45,6 +45,9 @@ When the user asks to connect or manage infrastructure:
 5. Use `--yes` only when the user explicitly requested a revoke or removal.
 6. Do not approve an operation initiated by this Agent. Leave approval as an independent user
    decision.
+7. Check client updates with `adc update --check --json`. Run `adc update` only when the user asks
+   to update or has explicitly delegated routine maintenance, and do not update while device work
+   is running because the Connector restarts after activation.
 
 Cloud device policy may only narrow folders already exposed by a Connector. On the current device,
 documented `adc-node roots`, `adc-node access`, `adc-node templates` and `adc-node mcp` commands may

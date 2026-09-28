@@ -120,9 +120,16 @@ try {
     resolve(staging, "THIRD-PARTY-NOTICES.txt"),
     `Bundled Node.js ${runtime.version}: see licenses/Node-LICENSE\n\n${notices.sort().join("\n")}\n`
   );
+  const buildHash = createHash("sha256").update(JSON.stringify(runtime));
+  for (const name of ["adc.mjs", "adc-node.mjs"]) {
+    buildHash.update(name);
+    buildHash.update(await readFile(resolve(staging, "lib", name)));
+  }
+  buildHash.update(await readFile(resolve(root, "deploy/install.sh")));
+  const buildId = `sha256:${buildHash.digest("hex")}`;
   await writeFile(
     resolve(staging, "release.json"),
-    `${JSON.stringify({ version, runtime: runtime.version }, null, 2)}\n`
+    `${JSON.stringify({ version, runtime: runtime.version, buildId }, null, 2)}\n`
   );
   const archives: Record<string, { file: string; sha256: string; bytes: number }> = {};
   for (const target of targets) {
@@ -190,7 +197,7 @@ try {
   // Publish the installer last; keep prior content-addressed archives usable for cached scripts.
   await writeFile(
     resolve(output, "manifest.json"),
-    `${JSON.stringify({ version, runtimeVersion: runtime.version, archives }, null, 2)}\n`
+    `${JSON.stringify({ version, runtimeVersion: runtime.version, buildId, archives }, null, 2)}\n`
   );
   await writeFile(
     resolve(output, "SHA256SUMS"),

@@ -1,7 +1,18 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readlink, rm, stat, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readlink,
+  rename,
+  rm,
+  stat,
+  symlink,
+  writeFile
+} from "node:fs/promises";
 import { createServer } from "node:net";
 import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -203,6 +214,38 @@ describe("released device installer over HTTP", () => {
     expect((await stat(env.ADC_NODE_CONFIG!)).mode & 0o777).toBe(0o600);
     expect((await node(["--version"])).stdout.trim()).toBe("0.1.0");
     expect((await cli(["--help"])).code).toBe(0);
+    const updateCheck = await cli(["update", "--check", "--json"]);
+    expect(updateCheck.code, updateCheck.stderr).toBe(0);
+    expect(JSON.parse(updateCheck.stdout)).toMatchObject({
+      current: { version: "0.1.0", buildId: expect.stringMatching(/^sha256:/) },
+      available: { version: "0.1.0", buildId: expect.stringMatching(/^sha256:/) },
+      updateAvailable: false
+    });
+    const installedTarget = await readlink(resolve(env.ADC_INSTALL_DIR!, "current"));
+    const installedDirectory = resolve(env.ADC_INSTALL_DIR!, installedTarget);
+    const outdatedTarget = "releases/adc-0.0.9-test-outdated";
+    const outdatedDirectory = resolve(env.ADC_INSTALL_DIR!, outdatedTarget);
+    await cp(installedDirectory, outdatedDirectory, { recursive: true });
+    const outdatedRelease = JSON.parse(
+      await readFile(resolve(outdatedDirectory, "release.json"), "utf8")
+    );
+    await writeFile(
+      resolve(outdatedDirectory, "release.json"),
+      `${JSON.stringify({ ...outdatedRelease, buildId: `sha256:${"0".repeat(64)}` })}\n`
+    );
+    const nextLink = resolve(env.ADC_INSTALL_DIR!, ".outdated");
+    await symlink(outdatedTarget, nextLink);
+    await rename(nextLink, resolve(env.ADC_INSTALL_DIR!, "current"));
+    const available = await cli(["update", "--check", "--json"]);
+    expect(available.code, available.stderr).toBe(0);
+    expect(JSON.parse(available.stdout).updateAvailable).toBe(true);
+    const automatic = await cli(["update", "--no-service", "--json"]);
+    expect(automatic.code, automatic.stderr).toBe(0);
+    expect(JSON.parse(automatic.stdout)).toMatchObject({
+      updated: true,
+      updateAvailable: false
+    });
+    expect(await readlink(resolve(env.ADC_INSTALL_DIR!, "current"))).toBe(installedTarget);
     startDaemon();
     await expect.poll(async () => (await getNodes())[0]?.online, { timeout: 15_000 }).toBe(true);
     const nodeId = JSON.parse(original).nodeId as string;
@@ -256,13 +299,14 @@ describe("released device installer over HTTP", () => {
         output: { content: "Installed client reads this file.\n" }
       });
     await stopDaemon();
-    const upgraded = await install(["--no-service"]);
+    const upgraded = await cli(["update", "--force", "--no-service", "--json"]);
     expect(upgraded.code, upgraded.stderr).toBe(0);
+    expect(JSON.parse(upgraded.stdout)).toMatchObject({ updated: true, updateAvailable: false });
     expect(await readFile(env.ADC_NODE_CONFIG!, "utf8")).toBe(original);
     expect(await getNodes()).toHaveLength(1);
     const current = await readlink(resolve(env.ADC_INSTALL_DIR!, "current"));
     corruptArchive = true;
-    const broken = await install(["--no-service"]);
+    const broken = await cli(["update", "--force", "--no-service", "--json"]);
     corruptArchive = false;
     expect(broken.code).not.toBe(0);
     expect(broken.stderr).toContain("checksum mismatch");

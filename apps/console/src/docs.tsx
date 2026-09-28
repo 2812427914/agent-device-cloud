@@ -642,6 +642,8 @@ adc-node access full
 adc-node access none
 adc-node logs
 adc-node restart
+adc update --check
+adc update
 adc-node rotate-key
 adc-node uninstall`}
         </CodeBlock>

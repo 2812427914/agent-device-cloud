@@ -53,6 +53,8 @@
 - Downloadable macOS/Linux arm64/x64 clients with bundled Node.js and dependency license notices
 - Conventional curl installer, integrity verification, persistent pairing, reinstall upgrades and
   launchd stale-registration recovery
+- Explicit `adc update --check` / `adc update` with build-ID comparison, saved release source,
+  checksum verification, atomic activation and service-restart rollback
 - User launchd/systemd service generation and start/stop/restart/status/logs/uninstall commands
 - Exact-ID-confirmed local unpair for replacing deleted devices while retaining durable receipts
 - Console installation command, separate CDN/release origin and automatic device presence refresh
@@ -115,7 +117,7 @@ sequentially to prevent archive compression and PostgreSQL startup from starving
 - Keychain/keyring-backed Node key storage
 - Linux container hard-isolation profile
 - S3-compatible artifact adapter, account storage/compute quotas and retention jobs
-- Signed release packages and an unattended automatic updater
+- Signed release packages, differential downloads and an unattended automatic updater
 - Automated backup/restore tooling and external penetration test (manual operations are documented)
 - Team roles, enterprise SSO/SCIM and billing
 - Windows Node

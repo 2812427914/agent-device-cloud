@@ -257,16 +257,22 @@ adc invoke shell.exec --node node_example \
 adc task status <job-id> --json
 adc artifact get <artifact-id> --output ./artifact.log --json
 adc audit show <invocation-id> --json
+adc update --check --json
+adc update
 adc mcp
 adc logout
 ```
 
 Device policy, access, connection, project and approval management are available through
 `adc device`, `adc access`, `adc connection`, `adc project` and `adc approval`; run `adc --help`
-for their machine-readable forms. For advanced headless integrations, use `ADC_URL` + `ADC_TOKEN`,
-or import an access key with `adc auth token --url URL --stdin`. Use `--password-stdin` for
-noninteractive login. Do not put secrets in command arguments. Tool invocation and stdio MCP never
-inherit the user's account login.
+for their machine-readable forms. `adc update --check` compares the installed build with the
+current platform archive; `adc update` downloads the checksummed release, switches atomically and
+restarts the Connector while preserving identity, folders and receipts. The current release format
+contains its Node.js runtime, so updates download the complete platform archive.
+
+For advanced headless integrations, use `ADC_URL` + `ADC_TOKEN`, or import an access key with
+`adc auth token --url URL --stdin`. Use `--password-stdin` for noninteractive login. Do not put
+secrets in command arguments. Tool invocation and stdio MCP never inherit the user's account login.
 
 Remote MCP uses `https://devices.example.com/mcp`: OAuth discovery → registration → login →
 explicit grant selection → PKCE code exchange. Access tokens are resource-bound, short-lived and

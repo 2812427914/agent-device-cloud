@@ -16,11 +16,13 @@ import {
   signOut
 } from "./auth.ts";
 import { isManagementCommand, managementUsage, runManagementCommand } from "./management.ts";
+import { updateClient } from "./update.ts";
 
 const usage = `Agent Device Cloud
 Usage:
   adc login --url URL --email EMAIL
   adc logout | status
+  adc update [--check] [--force] [--download-url URL] [--no-service]
   adc device add|list|show|update|wait|revoke|remove
   adc access create|list|show|update|revoke|remove
   adc connect ACCESS
@@ -140,6 +142,19 @@ async function main(): Promise<void> {
   }
   if (domain === "auth" && action === "logout") {
     print(await signOut(), json);
+    return;
+  }
+  if (domain === "update") {
+    const downloadUrl = stringFlag(flags, "download-url");
+    print(
+      await updateClient({
+        check: flags.has("check"),
+        force: flags.has("force"),
+        noService: flags.has("no-service"),
+        ...(downloadUrl ? { downloadUrl } : {})
+      }),
+      json
+    );
     return;
   }
 

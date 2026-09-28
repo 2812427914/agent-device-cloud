@@ -21,12 +21,15 @@ choose the device, use its exposed folders, and choose capabilities and approval
 or duplicate physical path entry is required. All-folder grants include future folders;
 selected-folder grants do not expand automatically.
 
-The same installation command upgrades an existing device without consuming its supplied code.
-Pairing, folders and receipt state are preserved. Pairing to a different server is refused.
+After the first installation, use `adc update --check` and `adc update`. The update command reads
+the saved release source, compares build IDs, downloads and verifies the current platform archive,
+then reuses the installer without consuming a pairing code. Pairing, folders and receipt state are
+preserved. `--download-url` can override the saved source, and `--no-service` is available for
+foreground or isolated installations. Pairing to a different server is refused.
 The installer serializes upgrades with a PID lock. If an earlier process was interrupted, the next
 run automatically removes the stale lock; a live installer PID is never interrupted.
 On macOS, startup falls back to loading the new plist if a stale launchd registration disappears
-between inspection and restart.
+between inspection and restart. A failed service restart restores the previous active release.
 If the server accepted pairing but local key persistence failed, retry with a fresh pairing code and
 the same device name. A never-online incomplete record is replaced automatically.
 Manage local scope without restarting or pairing again:
@@ -51,7 +54,7 @@ selected folders should first use `adc-node access none`, then add the intended 
 does not elevate privileges. Approval and Agent capabilities remain separate. Template changes made
 with `adc-node templates add|list|remove` reload automatically. Invalid config prevents new work;
 removing/downgrading access cancels affected running work.
-Repeat installation preserves updated roots/access even if an old command has stale directory flags.
+Updates preserve roots/access even if an old installation command contains stale directory flags.
 
 Local MCP Providers are managed with `adc-node mcp add|list|remove`. Stdio Providers receive
 arguments through `--args`; secrets must be loaded from a mode-0600 JSON file with `--env-file`.
@@ -96,7 +99,7 @@ Upload the contents of `dist/node/` unchanged to that directory:
 
 - `install.sh`: generated installer with the download base URL and archive checksums embedded.
 - `adc-<version>-<platform>-<arch>-<digest>.tar.gz`: runtime, CLI, daemon and license notices.
-- `manifest.json`: version, runtime, file names, sizes and SHA-256 values.
+- `manifest.json`: version, build ID, runtime, file names, sizes and SHA-256 values.
 - `SHA256SUMS`: archive checksums for manual verification.
 
 Then the public command is:
@@ -126,8 +129,9 @@ Minimum OS requirements follow the pinned Node.js 24 runtime (macOS 13.5+, glibc
 
 Official runtime URLs and SHA-256 values are committed in `deploy/node-runtime.json`. Update the
 version, all four hashes and release validation together when taking Node security updates.
-Archive hashes verify integrity; HTTPS establishes the distribution origin. Detached signatures
-and an unattended auto-updater are not included.
+Archive hashes verify integrity; HTTPS establishes the distribution origin. `adc update` is
+explicit and downloads the complete runtime-containing archive. Detached signatures, differential
+packages and unattended updates are not included.
 
 ## Serve releases with the Control Plane
 
@@ -153,10 +157,10 @@ curl -fsSL http://localhost:8787/install.sh | sh -s -- \
 
 `pnpm exec vitest run tests/install.e2e.test.ts` builds an archive for the current platform and uses
 an isolated real PostgreSQL account over HTTP. It installs from the served script with no Node.js or
-pnpm on PATH, pairs, runs a real daemon, imports an Agent token, reads a local file through the
-installed CLI, reinstalls, checks identity preservation, rejects a corrupted download, reconnects
-and uninstalls. Paths include whitespace and shell metacharacters. It does not change the user's
-HOME, normal configuration or existing pairing.
+pnpm on PATH, pairs, runs a real daemon, imports an access key, reads a local file through the
+installed CLI, checks and performs an `adc update`, verifies identity preservation, rejects a
+corrupted download, reconnects and uninstalls. Paths include whitespace and shell metacharacters.
+It does not change the user's HOME, normal configuration or existing pairing.
 
 The actual macOS service-manager check is opt-in because sandboxed development environments may
 deny execution of launchctl:

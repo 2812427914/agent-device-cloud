@@ -160,6 +160,10 @@ if [ ! -d "$install_dir/releases/$release_name" ]; then
   mv "$temporary/payload" "$install_dir/releases/$release_name"
 fi
 runtime="$install_dir/releases/$release_name/runtime/bin/node"
+previous_target=''
+if [ -L "$install_dir/current" ]; then
+  previous_target=$(readlink "$install_dir/current")
+fi
 ln -s "releases/$release_name" "$temporary/current"
 "$runtime" --input-type=module -e 'import {renameSync} from "node:fs"; renameSync(process.argv[1], process.argv[2]);' \
   "$temporary/current" "$install_dir/current"
@@ -170,6 +174,10 @@ for name in adc adc-node; do
     printf '#!/bin/sh\n# ADC managed launcher\n'
     printf 'export ADC_INSTALL_DIR='; quote "$install_dir"; printf '\n'
     printf 'export ADC_BIN_DIR='; quote "$bin_dir"; printf '\n'
+    printf 'export ADC_UPDATE_URL='; quote "$download_url"; printf '\n'
+    if [ -n "$url" ]; then
+      printf 'export ADC_CONTROL_PLANE_URL='; quote "$url"; printf '\n'
+    fi
     printf 'if [ -z "${ADC_NODE_CONFIG:-}" ]; then export ADC_NODE_CONFIG='
     quote "$config_path"; printf '; fi\n'
     if [ -n "${ADC_SERVICE_DIR:-}" ]; then
@@ -181,7 +189,16 @@ for name in adc adc-node; do
   mv -f "$temporary/$name" "$bin_dir/$name"
 done
 if [ "$no_service" = false ]; then
-  "$bin_dir/adc-node" setup
+  if ! "$bin_dir/adc-node" setup; then
+    if [ -n "$previous_target" ]; then
+      ln -s "$previous_target" "$temporary/previous"
+      "$runtime" --input-type=module -e 'import {renameSync} from "node:fs"; renameSync(process.argv[1], process.argv[2]);' \
+        "$temporary/previous" "$install_dir/current"
+      "$bin_dir/adc-node" setup >/dev/null 2>&1 || true
+      fail "Connector restart failed. The previous release was restored."
+    fi
+    fail "Connector service setup failed. The downloaded release remains installed."
+  fi
 fi
 printf '\nInstalled: %s\n' "$bin_dir/adc-node"
 case ":${PATH:-}:" in
