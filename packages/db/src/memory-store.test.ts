@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CapabilitySchema,
   InvocationSchema,
   ReceiptSchema,
   ResultSchema,
@@ -51,6 +52,60 @@ function makeDispatch(invocation = makeInvocation()): DispatchRecord {
 }
 
 describe("MemoryStore", () => {
+  it("keeps presence and capability updates monotonic", async () => {
+    const store = new MemoryStore();
+    await store.putAccount({
+      accountId: "acct_primary",
+      ownerTokenHash: "hash",
+      createdAt: "2026-09-24T00:00:00.000Z"
+    });
+    await store.putPairingCode({
+      codeHash: "presence-code",
+      accountId: "acct_primary",
+      expiresAt: "2026-09-24T00:10:00.000Z"
+    });
+    await store.pairNode({
+      codeHash: "presence-code",
+      now: new Date("2026-09-24T00:01:00.000Z"),
+      node: {
+        nodeId: "node_presence",
+        accountId: "acct_primary",
+        label: "Presence",
+        publicKey: "pem",
+        platform: "linux",
+        status: "active",
+        createdAt: "2026-09-24T00:01:00.000Z"
+      }
+    });
+    const capability = (nodeVersion: string) =>
+      CapabilitySchema.parse({
+        schemaVersion: "0.1",
+        nodeId: "node_presence",
+        tools: [],
+        roots: [],
+        platform: "linux",
+        nodeVersion,
+        advertisedAt: "2026-09-24T00:00:00.000Z"
+      });
+    await store.updateNodePresence(
+      "node_presence",
+      capability("new"),
+      new Date("2026-09-24T00:03:00.000Z")
+    );
+    await store.updateNodePresence(
+      "node_presence",
+      capability("old"),
+      new Date("2026-09-24T00:02:00.000Z")
+    );
+    await store.rotateNodeKey("node_presence", "new-key", new Date("2026-09-24T00:02:30.000Z"));
+
+    await expect(store.getNode("node_presence")).resolves.toMatchObject({
+      lastSeenAt: "2026-09-24T00:03:00.000Z",
+      capability: { nodeVersion: "new" },
+      publicKey: "new-key"
+    });
+  });
+
   it("consumes a pairing code exactly once", async () => {
     const store = new MemoryStore();
     await store.putAccount({
@@ -76,7 +131,10 @@ describe("MemoryStore", () => {
         createdAt: "2026-09-24T00:01:00.000Z"
       }
     };
-    await expect(store.pairNode(input)).resolves.toMatchObject({ nodeId: "node_macbook" });
+    await expect(store.pairNode(input)).resolves.toMatchObject({
+      node: { nodeId: "node_macbook" },
+      replacedNodeIds: []
+    });
     await expect(store.pairNode(input)).resolves.toBeUndefined();
   });
 

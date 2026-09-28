@@ -17,6 +17,7 @@ import type {
   DispatchRecord,
   NodeRecord,
   PairNodeInput,
+  PairNodeResult,
   PairingCodeRecord,
   ProjectRecord,
   RootBindingRecord,
@@ -62,11 +63,12 @@ export class MemoryStore implements Store {
     this.pairingCodes.set(code.codeHash, clone(code));
   }
 
-  async pairNode(input: PairNodeInput): Promise<NodeRecord | undefined> {
+  async pairNode(input: PairNodeInput): Promise<PairNodeResult | undefined> {
     const code = this.pairingCodes.get(input.codeHash);
     if (!code || code.usedAt || Date.parse(code.expiresAt) <= input.now.getTime()) {
       return undefined;
     }
+    const replacedNodeIds: string[] = [];
     for (const node of this.nodes.values()) {
       if (
         node.accountId === code.accountId &&
@@ -78,6 +80,7 @@ export class MemoryStore implements Store {
         node.status = "revoked";
         node.deletedAt = input.now.toISOString();
         node.revision = (node.revision ?? 1) + 1;
+        replacedNodeIds.push(node.nodeId);
       }
     }
     if (
@@ -94,7 +97,7 @@ export class MemoryStore implements Store {
     code.usedAt = input.now.toISOString();
     const node: NodeRecord = { ...input.node, accountId: code.accountId, revision: 1 };
     this.nodes.set(node.nodeId, clone(node));
-    return clone(node);
+    return { node: clone(node), replacedNodeIds };
   }
 
   async getNode(nodeId: string): Promise<NodeRecord | undefined> {
@@ -117,9 +120,23 @@ export class MemoryStore implements Store {
     if (!node || node.status === "revoked") {
       return undefined;
     }
-    node.capability = clone(capability);
-    node.lastSeenAt = now.toISOString();
+    if (!node.lastSeenAt || Date.parse(node.lastSeenAt) <= now.getTime()) {
+      node.capability = clone(capability);
+      node.lastSeenAt = now.toISOString();
+    }
     return clone(node);
+  }
+
+  async touchNodePresences(nodeIds: string[], now: Date): Promise<void> {
+    for (const nodeId of new Set(nodeIds)) {
+      const node = this.nodes.get(nodeId);
+      if (
+        node?.status === "active" &&
+        node.capability &&
+        (!node.lastSeenAt || Date.parse(node.lastSeenAt) < now.getTime())
+      )
+        node.lastSeenAt = now.toISOString();
+    }
   }
 
   async rotateNodeKey(nodeId: string, publicKey: string, now: Date): Promise<boolean> {
@@ -128,7 +145,8 @@ export class MemoryStore implements Store {
       return false;
     }
     node.publicKey = publicKey;
-    node.lastSeenAt = now.toISOString();
+    if (!node.lastSeenAt || Date.parse(node.lastSeenAt) < now.getTime())
+      node.lastSeenAt = now.toISOString();
     return true;
   }
 

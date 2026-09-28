@@ -28,6 +28,8 @@
 - One-time pairing, Ed25519 request proof, nonce replay prevention, key rotation and revoke
 - PostgreSQL and in-memory stores
 - Placement, dispatch, lease/ACK/renewal, deadline watchdog, cancellation and reconnect reconciliation
+- Signed outbound WebSocket wake channel, heartbeat-backed presence, immediate reconnect catch-up
+  and a 30-second durable fallback poll; wake messages never contain invocation data
 - Persistent owner approval queue with approve, deny and expiry states
 - REST client, CLI, stdio/HTTP MCP adapters and official Skill
 - Account-management CLI for device enrollment/policy, Agent access, connections, projects,
@@ -62,7 +64,7 @@
 
 ## Verified
 
-- 110 passing tests across 26 files on Node.js 22; one opt-in macOS service test skipped (111 total)
+- 123 passing tests across 28 files on Node.js 22; one opt-in macOS service test skipped (124 total)
 - Real PostgreSQL migration, concurrent `SKIP LOCKED` claims and restart persistence
 - Pairing/replay/revoke behavior
 - Symlink escape, secret redaction, command denial, timeout/cancel and output limits

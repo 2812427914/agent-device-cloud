@@ -21,6 +21,7 @@ import type {
   DispatchRecord,
   NodeRecord,
   PairNodeInput,
+  PairNodeResult,
   PairingCodeRecord,
   ProjectRecord,
   RootBindingRecord,
@@ -186,7 +187,7 @@ export class PostgresStore implements Store {
     );
   }
 
-  async pairNode(input: PairNodeInput): Promise<NodeRecord | undefined> {
+  async pairNode(input: PairNodeInput): Promise<PairNodeResult | undefined> {
     return transaction(this.pool, async (client) => {
       const consumed = await client.query(
         `UPDATE adc_pairing_codes
@@ -200,11 +201,12 @@ export class PostgresStore implements Store {
       }
       // Pairing can reach the server before the installer persists its private key.
       // A same-account device that never completed one poll is safe to replace.
-      await client.query(
+      const replaced = await client.query(
         `UPDATE adc_nodes
          SET status = 'revoked', deleted_at = $3, revision = revision + 1
          WHERE account_id = $1 AND label = $2 AND status = 'active'
-           AND last_seen_at IS NULL AND deleted_at IS NULL`,
+           AND last_seen_at IS NULL AND deleted_at IS NULL
+         RETURNING node_id`,
         [consumed.rows[0]!.account_id, input.node.label, input.now.toISOString()]
       );
       try {
@@ -225,7 +227,10 @@ export class PostgresStore implements Store {
             input.node.createdAt
           ]
         );
-        return nodeFromRow(inserted.rows[0]!);
+        return {
+          node: nodeFromRow(inserted.rows[0]!),
+          replacedNodeIds: replaced.rows.map((row) => String(row.node_id))
+        };
       } catch (error: any) {
         if (error?.code === "23505") {
           throw new ProtocolError(ErrorCodes.CONFLICT, "node label already exists", false);
@@ -255,7 +260,14 @@ export class PostgresStore implements Store {
   ): Promise<NodeRecord | undefined> {
     const result = await this.pool.query(
       `UPDATE adc_nodes
-       SET capability = $2, last_seen_at = $3
+       SET capability = CASE
+             WHEN last_seen_at IS NULL OR last_seen_at <= $3 THEN $2
+             ELSE capability
+           END,
+           last_seen_at = CASE
+             WHEN last_seen_at IS NULL OR last_seen_at <= $3 THEN $3
+             ELSE last_seen_at
+           END
        WHERE node_id = $1 AND status = 'active'
        RETURNING *`,
       [nodeId, capability, now.toISOString()]
@@ -263,9 +275,27 @@ export class PostgresStore implements Store {
     return result.rows[0] ? nodeFromRow(result.rows[0]) : undefined;
   }
 
+  async touchNodePresences(nodeIds: string[], now: Date): Promise<void> {
+    if (!nodeIds.length) return;
+    await this.pool.query(
+      `UPDATE adc_nodes
+       SET last_seen_at = CASE
+         WHEN last_seen_at IS NULL OR last_seen_at < $2 THEN $2
+         ELSE last_seen_at
+       END
+       WHERE node_id = ANY($1::text[]) AND status = 'active' AND capability IS NOT NULL`,
+      [[...new Set(nodeIds)], now.toISOString()]
+    );
+  }
+
   async rotateNodeKey(nodeId: string, publicKey: string, now: Date): Promise<boolean> {
     const result = await this.pool.query(
-      `UPDATE adc_nodes SET public_key = $2, last_seen_at = $3
+      `UPDATE adc_nodes
+       SET public_key = $2,
+           last_seen_at = CASE
+             WHEN last_seen_at IS NULL OR last_seen_at < $3 THEN $3
+             ELSE last_seen_at
+           END
        WHERE node_id = $1 AND status = 'active'`,
       [nodeId, publicKey, now.toISOString()]
     );

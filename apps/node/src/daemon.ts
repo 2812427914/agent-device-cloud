@@ -10,12 +10,26 @@ import {
 import { ToolRuntime, type CommandTemplate, type LocalRoot } from "@adc/tool-runtime";
 import type { McpProviderConfig } from "./config.ts";
 import { McpProviderManager } from "./mcp-providers.ts";
+import { WakeLatch, WebSocketWakeSource, type NodeWakeSource } from "./wake.ts";
 
 interface LocalAccess {
   roots: LocalRoot[];
   templates?: CommandTemplate[];
   accessMode?: "none" | "selected" | "home" | "full";
   mcpProviders?: McpProviderConfig[];
+}
+
+function normalizeAccess(access: LocalAccess): Required<LocalAccess> {
+  return {
+    roots: access.roots,
+    templates: access.templates ?? [],
+    accessMode: access.accessMode ?? "selected",
+    mcpProviders: access.mcpProviders ?? []
+  };
+}
+
+function accessFingerprint(access: LocalAccess): string {
+  return JSON.stringify(normalizeAccess(access));
 }
 
 export interface NodeDaemonOptions {
@@ -34,6 +48,7 @@ export interface NodeDaemonOptions {
   configReloadIntervalMs?: number;
   mcpProviders?: McpProviderConfig[];
   mcpProviderManager?: McpProviderManager;
+  wakeSource?: NodeWakeSource;
 }
 
 export class NodeDaemon {
@@ -41,16 +56,18 @@ export class NodeDaemon {
   readonly runtime: ToolRuntime;
   readonly providers: McpProviderManager;
   private readonly shutdown = new AbortController();
+  private readonly wakeSource: NodeWakeSource;
   private access: LocalAccess;
-  private reloadQueue: Promise<void> = Promise.resolve();
+  private accessInitialized = false;
+  private reloadQueue: Promise<boolean> = Promise.resolve(false);
 
   constructor(private readonly options: NodeDaemonOptions) {
-    this.access = {
+    this.access = normalizeAccess({
       roots: options.roots,
-      templates: options.templates ?? [],
-      accessMode: options.accessMode ?? "selected",
-      mcpProviders: options.mcpProviders ?? []
-    };
+      ...(options.templates ? { templates: options.templates } : {}),
+      ...(options.accessMode ? { accessMode: options.accessMode } : {}),
+      ...(options.mcpProviders ? { mcpProviders: options.mcpProviders } : {})
+    });
     this.providers = options.mcpProviderManager ?? new McpProviderManager();
     this.api = options.fetcher
       ? new NodeApiClient(
@@ -60,6 +77,23 @@ export class NodeDaemon {
           options.fetcher
         )
       : new NodeApiClient(options.controlPlaneUrl, options.nodeId, options.privateKey);
+    this.wakeSource =
+      options.wakeSource ??
+      new WebSocketWakeSource({
+        controlPlaneUrl: options.controlPlaneUrl,
+        nodeId: options.nodeId,
+        privateKey: options.privateKey,
+        onError: (error) => {
+          console.error(
+            JSON.stringify({
+              level: "warn",
+              component: "adc-node",
+              message: "wake connection failed",
+              error: error instanceof Error ? error.message : String(error)
+            })
+          );
+        }
+      });
     this.runtime = new ToolRuntime({
       nodeId: options.nodeId,
       roots: options.roots,
@@ -70,16 +104,42 @@ export class NodeDaemon {
     });
   }
 
-  private reloadAccess(): Promise<void> {
+  private reloadAccess(): Promise<boolean> {
     this.reloadQueue = this.reloadQueue
-      .catch(() => {})
+      .catch(() => false)
       .then(async () => {
-        const next = this.options.loadAccess ? await this.options.loadAccess() : this.access;
-        await this.providers.update(next.mcpProviders ?? []);
-        this.runtime.updateAccess(next.roots, next.templates ?? [], next.accessMode === "full");
+        const next = normalizeAccess(
+          this.options.loadAccess ? await this.options.loadAccess() : this.access
+        );
+        const changed = accessFingerprint(next) !== accessFingerprint(this.access);
+        const providersBefore = JSON.stringify(this.providers.capabilities());
+        await this.providers.update(next.mcpProviders);
+        const providersChanged = providersBefore !== JSON.stringify(this.providers.capabilities());
+        if (!this.accessInitialized || changed) {
+          this.runtime.updateAccess(next.roots, next.templates, next.accessMode === "full");
+        }
         this.access = next;
+        this.accessInitialized = true;
+        return changed || providersChanged;
       });
     return this.reloadQueue;
+  }
+
+  private async waitForWork(
+    wake: WakeLatch,
+    maximumDelayMs: number,
+    signal: AbortSignal
+  ): Promise<void> {
+    const deadline = Date.now() + maximumDelayMs;
+    do {
+      const remaining = Math.max(0, deadline - Date.now());
+      const delay = this.options.loadAccess
+        ? Math.min(this.options.configReloadIntervalMs ?? 1_000, remaining)
+        : remaining;
+      if (await wake.wait(delay, signal)) return;
+      if (signal.aborted || Date.now() >= deadline) return;
+      if (this.options.loadAccess && (await this.reloadAccess())) return;
+    } while (!signal.aborted);
   }
 
   capability(now = new Date()): CapabilityAdvertisement {
@@ -272,12 +332,27 @@ export class NodeDaemon {
     const lifecycle = signal
       ? AbortSignal.any([signal, this.shutdown.signal])
       : this.shutdown.signal;
-    let delay = this.options.pollIntervalMs ?? 1000;
+    const wake = new WakeLatch();
+    const wakeTask = this.wakeSource
+      .run(() => wake.notify(), lifecycle)
+      .catch((error) => {
+        console.error(
+          JSON.stringify({
+            level: "error",
+            component: "adc-node",
+            message: "wake listener stopped",
+            error: error instanceof Error ? error.message : String(error)
+          })
+        );
+      });
+    let errorDelay = 1_000;
     try {
       while (!lifecycle.aborted) {
         try {
           const handled = await this.runOnce(lifecycle);
-          delay = handled ? 0 : (this.options.pollIntervalMs ?? 1000);
+          errorDelay = 1_000;
+          if (handled) continue;
+          await this.waitForWork(wake, this.options.pollIntervalMs ?? 30_000, lifecycle);
         } catch (error) {
           console.error(
             JSON.stringify({
@@ -286,22 +361,12 @@ export class NodeDaemon {
               message: error instanceof Error ? error.message : String(error)
             })
           );
-          delay = Math.min(Math.max(delay * 2, 1000), 30_000);
-        }
-        if (delay > 0) {
-          await new Promise<void>((resolve) => {
-            const finish = () => {
-              clearTimeout(timer);
-              lifecycle.removeEventListener("abort", finish);
-              resolve();
-            };
-            const timer = setTimeout(finish, delay);
-            lifecycle.addEventListener("abort", finish, { once: true });
-            if (lifecycle.aborted) finish();
-          });
+          await wake.wait(errorDelay, lifecycle);
+          errorDelay = Math.min(errorDelay * 2, 30_000);
         }
       }
     } finally {
+      await wakeTask;
       await this.providers.close();
     }
   }

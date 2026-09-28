@@ -167,7 +167,7 @@ export const zh = {
   Identity: "身份认证",
   Authorization: "权限决策",
   Placement: "设备选择",
-  "Outbound poll": "出站轮询",
+  "WebSocket wake": "WebSocket 唤醒",
   "Built-in tools": "内置工具",
   "Signed requests": "签名请求",
   "Lease and ACK": "租约与确认",
@@ -177,8 +177,8 @@ export const zh = {
   "Outbound dispatch": "出站任务派发",
   "Local execution": "本地执行",
   "Dispatch state": "派发状态",
-  "Makes an outbound connection, advertises built-in and local MCP tools, and maintains the lease.":
-    "建立出站连接，上报内置工具与本地 MCP 工具，并维护任务租约。",
+  "Maintains an outbound wake connection, advertises built-in and local MCP tools, and renews active leases.":
+    "维持出站唤醒连接，上报内置工具与本地 MCP 工具，并续期执行中的任务租约。",
   "Local runtime": "本地运行时",
   "Revalidates local policy, runs built-in tools or calls the selected MCP Provider, and persists a receipt.":
     "再次校验本地策略，执行内置工具或调用选定的 MCP Provider，并持久化回执。",

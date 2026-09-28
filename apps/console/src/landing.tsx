@@ -84,9 +84,9 @@ const architecture: Array<{
     number: "03",
     title: "Device connector",
     description:
-      "Makes an outbound connection, advertises built-in and local MCP tools, and maintains the lease.",
+      "Maintains an outbound wake connection, advertises built-in and local MCP tools, and renews active leases.",
     icon: Network,
-    modules: ["Outbound poll", "Built-in tools", "Local MCP Providers", "Lease and ACK"]
+    modules: ["WebSocket wake", "Built-in tools", "Local MCP Providers", "Lease and ACK"]
   },
   {
     number: "04",

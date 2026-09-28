@@ -12,8 +12,11 @@ resolves the target with `realpath` on every call, including the nearest existin
 Opaque `rootId` plus relative path remains accepted as a protocol-0.1 compatibility form and stays
 the internal representation for saved policies and local command templates.
 
-The Node makes outbound HTTPS poll, ACK and receipt requests. The business protocol does not depend
-on long poll and may later use another transport without changing Tool IR or Receipt semantics.
+The Node maintains an outbound authenticated WebSocket used only for non-durable wake signals. It
+continues to use signed HTTPS poll, ACK, lease and receipt requests for all authoritative work. A
+30-second fallback poll and an immediate poll after reconnect recover a missed wake. The business
+protocol does not depend on WebSocket delivery, so a future shared MQTT wake bus does not change
+Tool IR, authorization, lease or Receipt semantics.
 
 ## Consequences
 

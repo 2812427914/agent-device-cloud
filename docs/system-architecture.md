@@ -40,8 +40,8 @@ flowchart LR
   POLICY --> ROUTER
   ROUTER <--> DB
   AUDIT <--> DB
-  ROUTER -->|"outbound poll response"| NODE
-  NODE -->|"signed ACK / lease / receipt"| ROUTER
+  ROUTER -->|"WebSocket wake signal"| NODE
+  NODE -->|"signed poll / ACK / lease / receipt"| ROUTER
   NODE --> RUNTIME
   RUNTIME --> FILES
   RUNTIME --> TOOLS
@@ -52,22 +52,22 @@ flowchart LR
 
 ### Source map
 
-| Responsibility                            | Implementation                                                             |
-| ----------------------------------------- | -------------------------------------------------------------------------- |
-| Invocation, result and capability schemas | `packages/protocol/src/index.ts`                                           |
-| Policy intersection                       | `packages/policy/src/index.ts`                                             |
-| Authentication and OAuth                  | `apps/control-plane/src/auth.ts`, `apps/control-plane/src/access.ts`       |
-| Placement and dispatch API                | `apps/control-plane/src/app.ts`                                            |
-| Durable dispatch state                    | `packages/db/src/postgres-store.ts`                                        |
-| Device polling and lease safety           | `apps/node/src/daemon.ts`                                                  |
-| Local MCP discovery and routing           | `apps/node/src/mcp-providers.ts`                                           |
-| Local execution                           | `packages/tool-runtime/src/runtime.ts`                                     |
-| Path safety                               | `packages/tool-runtime/src/path-security.ts`                               |
-| Local idempotency ledger                  | `packages/tool-runtime/src/receipt-ledger.ts`                              |
-| MCP translation                           | `packages/mcp-adapter/src/index.ts`                                        |
-| CLI and shared client                     | `apps/cli/src/main.ts`, `packages/client/src/index.ts`                     |
-| Human control surface                     | `apps/console/src/main.tsx`, `apps/console/src/agents.tsx`, `overview.tsx` |
-| Public product and docs                   | `apps/console/src/landing.tsx`, `apps/console/src/docs.tsx`                |
+| Responsibility                            | Implementation                                                              |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| Invocation, result and capability schemas | `packages/protocol/src/index.ts`                                            |
+| Policy intersection                       | `packages/policy/src/index.ts`                                              |
+| Authentication and OAuth                  | `apps/control-plane/src/auth.ts`, `apps/control-plane/src/access.ts`        |
+| Placement and dispatch API                | `apps/control-plane/src/app.ts`                                             |
+| Durable dispatch state                    | `packages/db/src/postgres-store.ts`                                         |
+| WebSocket wake, fallback poll and leases  | `apps/control-plane/src/node-wake.ts`, `apps/node/src/daemon.ts`, `wake.ts` |
+| Local MCP discovery and routing           | `apps/node/src/mcp-providers.ts`                                            |
+| Local execution                           | `packages/tool-runtime/src/runtime.ts`                                      |
+| Path safety                               | `packages/tool-runtime/src/path-security.ts`                                |
+| Local idempotency ledger                  | `packages/tool-runtime/src/receipt-ledger.ts`                               |
+| MCP translation                           | `packages/mcp-adapter/src/index.ts`                                         |
+| CLI and shared client                     | `apps/cli/src/main.ts`, `packages/client/src/index.ts`                      |
+| Human control surface                     | `apps/console/src/main.tsx`, `apps/console/src/agents.tsx`, `overview.tsx`  |
+| Public product and docs                   | `apps/console/src/landing.tsx`, `apps/console/src/docs.tsx`                 |
 
 ## Pairing and first authorization
 
@@ -88,6 +88,8 @@ sequenceDiagram
   CP->>DB: Atomically pair device
   CP-->>Node: nodeId + accountId
   Node->>Node: Persist private key with mode 0600
+  Node->>CP: Signed outbound WebSocket upgrade
+  CP-->>Node: Wake channel established
   Node->>CP: Signed poll + capability advertisement
   CP->>DB: Save presence and exposed path metadata
   User->>Manage: Create Agent access
@@ -97,6 +99,11 @@ sequenceDiagram
 
 The pairing code is not a device credential. It is consumed once and replaced by a device-generated
 key pair. The private key never needs to reach the Control Plane.
+
+The wake connection is also outbound and authenticated with a one-time signed request proof. A wake
+contains no invocation payload or authorization decision; it only prompts the Connector to call the
+normal signed poll endpoint. Reconnect performs an immediate poll, and a 30-second fallback poll
+recovers work if the connection or an individual signal is lost.
 
 ## CLI account login
 
@@ -152,6 +159,8 @@ sequenceDiagram
     CP-->>Agent: queued + jobId
   end
 
+  Note over CP,Node: After initial or approved dispatch enqueue
+  CP-->>Node: WebSocket dispatch.available
   Node->>CP: Signed poll
   CP->>DB: Claim with SKIP LOCKED and lease token
   CP-->>Node: Invocation + policy decision

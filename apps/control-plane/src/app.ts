@@ -1,8 +1,9 @@
 import { createHash, createPublicKey, randomBytes, timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import fastifyStatic from "@fastify/static";
+import fastifyWebsocket from "@fastify/websocket";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { Counter, Registry, collectDefaultMetrics } from "prom-client";
+import { Counter, Gauge, Registry, collectDefaultMetrics } from "prom-client";
 import { z } from "zod";
 import { verifyNodeRequest } from "@adc/client";
 import { type AgentGrantRecord, type DispatchRecord, type NodeRecord, type Store } from "@adc/db";
@@ -44,6 +45,7 @@ import {
   registerDistributionRoutes,
   type NodeDistribution
 } from "./distribution.ts";
+import { NodeWakeHub } from "./node-wake.ts";
 
 export interface ControlPlaneOptions {
   store: Store;
@@ -159,6 +161,13 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
     bodyLimit: 36 * 1024 * 1024,
     trustProxy: options.trustProxy ?? false
   });
+  await app.register(fastifyWebsocket, {
+    options: { maxPayload: 1024 },
+    preClose(done) {
+      for (const socket of this.websocketServer.clients) socket.terminate();
+      this.websocketServer.close(done);
+    }
+  });
   app.addHook("onSend", async (request, reply, payload) => {
     reply.header("x-content-type-options", "nosniff");
     reply.header("referrer-policy", "same-origin");
@@ -196,6 +205,26 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
     labelNames: ["outcome", "tool"],
     registers: [metrics]
   });
+  const wakeConnectionGauge = new Gauge({
+    name: "adc_node_wake_connections",
+    help: "Authenticated Node WebSocket wake connections.",
+    registers: [metrics]
+  });
+  const wakeCounter = new Counter({
+    name: "adc_node_wake_total",
+    help: "Node wake delivery attempts.",
+    labelNames: ["outcome"],
+    registers: [metrics]
+  });
+  const wakeHub = new NodeWakeHub({
+    now,
+    onConnectionCount: (count) => wakeConnectionGauge.set(count),
+    onError: (error) => requestLogError(app, error),
+    touchPresence: (nodeIds) => options.store.touchNodePresences(nodeIds, now())
+  });
+  const wakeNode = (nodeId: string) => {
+    wakeCounter.inc({ outcome: wakeHub.wake(nodeId) ? "attempted" : "offline" });
+  };
   const countInvocation = (outcome: string, tool: string) =>
     invocationCounter.inc({ outcome, tool: isBuiltinTool(tool) ? tool : "mcp.custom" });
 
@@ -206,6 +235,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
   }
   const principals = new WeakMap<FastifyRequest, Principal>();
   const nodeAccounts = new WeakMap<FastifyRequest, string>();
+  const nodeWakeGenerations = new WeakMap<FastifyRequest, number>();
   const accountOf = (request: FastifyRequest) => principals.get(request)!.accountId;
 
   async function requireAuthenticated(request: FastifyRequest, reply: FastifyReply) {
@@ -339,11 +369,12 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
     if (!/^[A-Za-z0-9_-]{16,128}$/.test(nonce)) {
       return apiError(reply, 401, ErrorCodes.INVALID_REQUEST, "invalid device proof nonce");
     }
+    const path = request.url.split("?")[0]!;
+    const wakeGeneration = path.endsWith("/events") ? wakeHub.generation(nodeId) : undefined;
     const node = await options.store.getNode(nodeId);
     if (!node || node.status !== "active") {
       return apiError(reply, 401, ErrorCodes.DENIED, "device is unknown or revoked");
     }
-    const path = request.url.split("?")[0]!;
     if (
       !verifyNodeRequest(node.publicKey, signature, {
         method: request.method,
@@ -364,8 +395,31 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       return apiError(reply, 409, ErrorCodes.CONFLICT, "device proof was already used");
     }
     nodeAccounts.set(request, node.accountId);
-    if (node.capability) await options.store.updateNodePresence(nodeId, node.capability, now());
+    if (wakeGeneration !== undefined) nodeWakeGenerations.set(request, wakeGeneration);
+    if (
+      node.capability &&
+      !wakeHub.has(nodeId) &&
+      !path.endsWith("/poll") &&
+      !path.endsWith("/events")
+    ) {
+      await options.store.touchNodePresences([nodeId], now());
+    }
   }
+
+  app.route({
+    method: "GET",
+    url: "/api/v1/nodes/:nodeId/events",
+    preValidation: requireNode,
+    handler: async (_request, reply) =>
+      reply
+        .code(426)
+        .header("upgrade", "websocket")
+        .send({ error: { code: ErrorCodes.INVALID_REQUEST, message: "WebSocket required." } }),
+    wsHandler: (socket, request) => {
+      const { nodeId } = z.object({ nodeId: z.string() }).parse(request.params);
+      wakeHub.connect(nodeId, socket, nodeWakeGenerations.get(request));
+    }
+  });
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ProtocolError) {
@@ -392,7 +446,13 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
     if (options.access.identity) await options.access.identity.pool.query("SELECT 1");
     return { ok: true, schemaVersion: "0.1" };
   });
-  registerResourceManagement(app, { store: options.store, requireOwner, accountOf, now });
+  registerResourceManagement(app, {
+    store: options.store,
+    requireOwner,
+    accountOf,
+    now,
+    disconnectNode: (nodeId) => wakeHub.disconnect(nodeId, "device removed")
+  });
   registerAccountRoutes(app, {
     access: options.access,
     store: options.store,
@@ -456,8 +516,11 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       pairingCounter.inc({ outcome: "denied" });
       return apiError(reply, 400, ErrorCodes.DENIED, "pairing code is invalid, expired or used");
     }
+    for (const nodeId of paired.replacedNodeIds) {
+      wakeHub.disconnect(nodeId, "device replaced");
+    }
     pairingCounter.inc({ outcome: "succeeded" });
-    return { nodeId: paired.nodeId, accountId: paired.accountId };
+    return { nodeId: paired.node.nodeId, accountId: paired.node.accountId };
   });
 
   app.get("/api/v1/nodes", { preHandler: requireOwner }, async (request) => ({
@@ -480,6 +543,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
     if (!(await options.store.revokeNode(nodeId, now()))) {
       return apiError(reply, 404, ErrorCodes.NOT_FOUND, "device was not found");
     }
+    wakeHub.disconnect(nodeId, "device revoked");
     await options.store.putAudit({
       eventId: createId("dsp"),
       accountId: node.accountId,
@@ -506,6 +570,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       if (!(await options.store.rotateNodeKey(nodeId, publicKey, now()))) {
         return apiError(reply, 404, ErrorCodes.NOT_FOUND, "device was not found");
       }
+      wakeHub.disconnect(nodeId, "device key rotated");
       await options.store.putAudit({
         eventId: createId("dsp"),
         accountId: nodeAccounts.get(request)!,
@@ -1049,6 +1114,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       },
       createdAt: timestamp
     });
+    wakeNode(queued.nodeId);
     countInvocation("queued", invocation.tool);
     return queued.result ?? queuedResult(queued);
   }
@@ -1267,6 +1333,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
           ErrorCodes.CONFLICT,
           "Approval was already resolved or expired."
         );
+      wakeNode(queued.nodeId);
       return queued.result ?? queuedResult(queued);
     }
   );
@@ -1405,6 +1472,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
   }
 
   app.addHook("onClose", async () => {
+    wakeHub.close();
     await options.store.close();
   });
   return app;

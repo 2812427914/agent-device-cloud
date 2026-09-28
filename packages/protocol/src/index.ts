@@ -36,6 +36,16 @@ export const ApprovalIdSchema = z.string().regex(/^apr_[a-z0-9][a-z0-9_-]{2,127}
 export const ReceiptIdSchema = z.string().regex(/^rcpt_[a-z0-9][a-z0-9_-]{2,127}$/);
 export const JobIdSchema = z.string().regex(/^job_[a-z0-9][a-z0-9_-]{2,127}$/);
 
+export const NodeWakeSignalSchema = z
+  .object({
+    schemaVersion: z.literal(PROTOCOL_VERSION),
+    type: z.literal("dispatch.available"),
+    nodeId: NodeIdSchema,
+    issuedAt: z.iso.datetime({ offset: true })
+  })
+  .strict();
+export type NodeWakeSignal = z.infer<typeof NodeWakeSignalSchema>;
+
 export const ResourcePathSchema = z
   .string()
   .max(4096)

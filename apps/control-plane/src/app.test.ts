@@ -3,7 +3,13 @@ import type { InjectOptions, LightMyRequestResponse } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { AdcClient, NodeApiClient, generateNodeKeyPair, signNodeRequest } from "@adc/client";
 import { MemoryStore } from "@adc/db";
-import { CapabilitySchema, InvocationSchema, ResultSchema, createId } from "@adc/protocol";
+import {
+  CapabilitySchema,
+  InvocationSchema,
+  NodeWakeSignalSchema,
+  ResultSchema,
+  createId
+} from "@adc/protocol";
 import { createControlPlane } from "./app.ts";
 import { accessFixture } from "../../../tests/helpers/access-fixture.ts";
 
@@ -28,9 +34,13 @@ function fetchFor(app: Awaited<ReturnType<typeof createControlPlane>>): typeof f
   }) as typeof fetch;
 }
 
-async function fixture() {
+async function fixture(now?: () => Date) {
   const store = new MemoryStore();
-  const app = await createControlPlane({ store, access: accessFixture({ cookie }) });
+  const app = await createControlPlane({
+    store,
+    access: accessFixture({ cookie }),
+    ...(now ? { now } : {})
+  });
   apps.push(app);
   const fetcher = fetchFor(app);
   const owner = new AdcClient("http://adc.test", { cookie }, fetcher);
@@ -189,6 +199,129 @@ describe("control plane", () => {
     expect(audit).toHaveLength(2);
   });
 
+  it("wakes an authenticated Node when work is queued", async () => {
+    const { app, owner, node, paired, keys, capability } = await fixture();
+    await node.poll(capability);
+    await ownerRequest(app, "POST", "/api/v1/projects", {
+      projectId: "proj_example",
+      label: "Example"
+    });
+    await ownerRequest(app, "POST", "/api/v1/projects/proj_example/roots", {
+      rootId: "root_workspace",
+      nodeId: paired.nodeId,
+      label: "Workspace",
+      writable: true
+    });
+    await ownerRequest(app, "POST", "/api/v1/grants", {
+      grantId: "grant_example",
+      projectId: "proj_example",
+      actorId: "actor_testagent",
+      profile: "read-only",
+      nodeIds: [paired.nodeId],
+      rootIds: ["root_workspace"],
+      allowedTools: ["file.read"]
+    });
+
+    const path = `/api/v1/nodes/${paired.nodeId}/events`;
+    const timestamp = new Date().toISOString();
+    const nonce = randomBytes(18).toString("base64url");
+    const socket = await app.injectWS(path, {
+      headers: {
+        "x-adc-node-id": paired.nodeId,
+        "x-adc-timestamp": timestamp,
+        "x-adc-nonce": nonce,
+        "x-adc-signature": signNodeRequest(keys.privateKey, {
+          method: "GET",
+          path,
+          timestamp,
+          nonce
+        })
+      }
+    });
+    const message = new Promise<unknown>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("wake signal timed out")), 1_000);
+      socket.once("message", (data) => {
+        clearTimeout(timeout);
+        resolve(JSON.parse(data.toString()));
+      });
+    });
+    const closed = new Promise<number>((resolve) => {
+      socket.once("close", (code) => resolve(code));
+    });
+    const now = new Date();
+    const queued = await owner.invoke(
+      InvocationSchema.parse({
+        schemaVersion: "0.1",
+        invocationId: createId("inv"),
+        attemptId: createId("att"),
+        accountId: "acct_primary",
+        actor: { type: "agent", id: "actor_testagent" },
+        target: { nodeId: paired.nodeId },
+        authorization: {
+          projectId: "proj_example",
+          rootIds: ["root_workspace"],
+          grantId: "grant_example"
+        },
+        tool: "file.read",
+        args: { rootId: "root_workspace", path: "README.md" },
+        issuedAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+        metadata: { source: "sdk" }
+      })
+    );
+
+    expect(queued.status).toBe("queued");
+    expect(NodeWakeSignalSchema.parse(await message)).toMatchObject({
+      type: "dispatch.available",
+      nodeId: paired.nodeId
+    });
+    const revoked = await ownerRequest(app, "POST", `/api/v1/nodes/${paired.nodeId}/revoke`, {});
+    expect(revoked.statusCode, revoked.body).toBe(200);
+    await expect(closed).resolves.toBe(4001);
+  });
+
+  it("keeps a new Node offline and disconnects it when same-label pairing replaces it", async () => {
+    const { app, store, owner, fetcher, paired, keys } = await fixture();
+    const path = `/api/v1/nodes/${paired.nodeId}/events`;
+    const timestamp = new Date().toISOString();
+    const nonce = randomBytes(18).toString("base64url");
+    const socket = await app.injectWS(path, {
+      headers: {
+        "x-adc-node-id": paired.nodeId,
+        "x-adc-timestamp": timestamp,
+        "x-adc-nonce": nonce,
+        "x-adc-signature": signNodeRequest(keys.privateKey, {
+          method: "GET",
+          path,
+          timestamp,
+          nonce
+        })
+      }
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect((await store.getNode(paired.nodeId))?.lastSeenAt).toBeUndefined();
+    const closed = new Promise<number>((resolve) => {
+      socket.once("close", (code) => resolve(code));
+    });
+    const replacementKeys = generateNodeKeyPair();
+    const replacementCode = await owner.createPairingCode();
+    const replacement = await new NodeApiClient(
+      "http://adc.test",
+      undefined,
+      replacementKeys.privateKey,
+      fetcher
+    ).pair({
+      code: replacementCode.code,
+      label: "test-mac",
+      platform: "darwin",
+      publicKey: replacementKeys.publicKey
+    });
+
+    expect(replacement.nodeId).not.toBe(paired.nodeId);
+    await expect(closed).resolves.toBe(4001);
+  });
+
   it("rejects replayed proofs and enforces key rotation and revoke", async () => {
     const { app, paired, keys, capability, fetcher, node } = await fixture();
     const path = `/api/v1/nodes/${paired.nodeId}/poll`;
@@ -234,7 +367,8 @@ describe("control plane", () => {
   });
 
   it("reports an explicit offline target instead of silently falling back", async () => {
-    const { app, owner, paired, node, capability, store } = await fixture();
+    let currentTime = new Date();
+    const { app, owner, paired, node, capability } = await fixture(() => currentTime);
     await node.poll(capability);
     await ownerRequest(app, "POST", "/api/v1/projects", {
       projectId: "proj_example",
@@ -255,8 +389,8 @@ describe("control plane", () => {
       rootIds: ["root_workspace"],
       allowedTools: ["file.read"]
     });
-    await store.updateNodePresence(paired.nodeId, capability, new Date(Date.now() - 60_000));
-    const now = new Date();
+    currentTime = new Date(currentTime.getTime() + 60_000);
+    const now = currentTime;
     const result = await owner.invoke(
       InvocationSchema.parse({
         schemaVersion: "0.1",

@@ -93,7 +93,7 @@ Agent / MCP host / CLI / Skill / SDK
 Control Plane
   identity -> authorization -> placement -> approval -> dispatch -> audit
                  |
-                 | outbound Node polling + signed ACK/lease/receipt
+                 | outbound WebSocket wake + signed poll/ACK/lease/receipt
                  v
 Device Connector
                  |

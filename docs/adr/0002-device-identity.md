@@ -17,5 +17,5 @@ macOS Keychain or a Linux keyring when available.
 
 - Captured requests cannot be replayed.
 - A credential cannot be copied to another key pair.
-- Revocation is checked on every poll, ACK and receipt upload.
+- Revocation is checked on every wake connection, poll, ACK and receipt upload.
 - Clock skew beyond five minutes fails closed and must be diagnosed by `adc node doctor`.

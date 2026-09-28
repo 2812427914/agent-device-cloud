@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PostgresMemoryServer } from "postgres-memory-server";
-import { InvocationSchema, createId } from "@adc/protocol";
+import { CapabilitySchema, InvocationSchema, createId } from "@adc/protocol";
 import { PostgresStore } from "./postgres-store.ts";
 import type { DispatchRecord } from "./types.ts";
 
@@ -116,6 +116,80 @@ describe("PostgresStore", () => {
   afterAll(async () => {
     await store.close();
     await embedded?.stop();
+  });
+
+  it("reports nodes replaced during same-label pairing", async () => {
+    const now = new Date();
+    await store.putPairingCode({
+      codeHash: "replace-old",
+      accountId: "acct_primary",
+      expiresAt: new Date(now.getTime() + 60_000).toISOString()
+    });
+    await store.pairNode({
+      codeHash: "replace-old",
+      now,
+      node: {
+        nodeId: "node_replace_old",
+        label: "replace-me",
+        publicKey: "old-key",
+        platform: "linux",
+        status: "active",
+        createdAt: now.toISOString()
+      }
+    });
+    await store.putPairingCode({
+      codeHash: "replace-new",
+      accountId: "acct_primary",
+      expiresAt: new Date(now.getTime() + 60_000).toISOString()
+    });
+
+    await expect(
+      store.pairNode({
+        codeHash: "replace-new",
+        now,
+        node: {
+          nodeId: "node_replace_new",
+          label: "replace-me",
+          publicKey: "new-key",
+          platform: "linux",
+          status: "active",
+          createdAt: now.toISOString()
+        }
+      })
+    ).resolves.toMatchObject({
+      node: { nodeId: "node_replace_new" },
+      replacedNodeIds: ["node_replace_old"]
+    });
+  });
+
+  it("keeps presence and capability updates monotonic", async () => {
+    const capability = (nodeVersion: string) =>
+      CapabilitySchema.parse({
+        schemaVersion: "0.1",
+        nodeId: "node_postgres",
+        tools: [],
+        roots: [],
+        platform: "linux",
+        nodeVersion,
+        advertisedAt: "2026-09-24T00:00:00.000Z"
+      });
+    await store.updateNodePresence(
+      "node_postgres",
+      capability("new"),
+      new Date("2026-09-24T00:03:00.000Z")
+    );
+    await store.updateNodePresence(
+      "node_postgres",
+      capability("old"),
+      new Date("2026-09-24T00:02:00.000Z")
+    );
+    await store.rotateNodeKey("node_postgres", "new-key", new Date("2026-09-24T00:02:30.000Z"));
+
+    await expect(store.getNode("node_postgres")).resolves.toMatchObject({
+      lastSeenAt: "2026-09-24T00:03:00.000Z",
+      capability: { nodeVersion: "new" },
+      publicKey: "new-key"
+    });
   });
 
   it("claims queued work once across concurrent pollers", async () => {

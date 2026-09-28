@@ -76,6 +76,11 @@ resource metadata until a future retention policy removes it.
 - `/health`: database readiness, HTTP 503 when PostgreSQL is unavailable.
 - `/metrics`: authenticated process, HTTP, invocation and polling metrics; use an authorized user
   session over a protected operations channel. Agent tool tokens cannot access installation metrics.
+- Reverse proxies must pass WebSocket upgrades for `/api/v1/nodes/:nodeId/events`. Wake signals are
+  best-effort only; the Connector immediately polls after reconnect and retains a 30-second fallback.
+- `adc_node_wake_connections` reports active authenticated wake sockets.
+  `adc_node_wake_total{outcome="attempted|offline"}` distinguishes send attempts on open sockets
+  from durable work queued while a Connector was disconnected.
 - Control Plane logs are JSON. Do not enable request-body or authorization-header logging upstream.
 - SIGTERM/SIGINT drains HTTP and closes PostgreSQL. Node shutdown cancels its active process and
   attempts to upload the durable terminal receipt. On reconnect, expired leases reconcile receipts.

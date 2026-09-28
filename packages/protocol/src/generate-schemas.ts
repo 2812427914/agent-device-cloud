@@ -6,6 +6,7 @@ import {
   CapabilitySchema,
   ErrorSchema,
   InvocationSchema,
+  NodeWakeSignalSchema,
   PolicyDecisionSchema,
   ReceiptSchema,
   ResultSchema
@@ -19,6 +20,7 @@ const schemas = {
   error: ErrorSchema,
   receipt: ReceiptSchema,
   capability: CapabilitySchema,
+  "node-wake-signal": NodeWakeSignalSchema,
   "policy-decision": PolicyDecisionSchema
 };
 

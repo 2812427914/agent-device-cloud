@@ -11,7 +11,7 @@
 
 1. Agent or CLI to Control Plane over authenticated HTTPS
 2. Control Plane to PostgreSQL
-3. Device Node to Control Plane over outbound authenticated HTTPS
+3. Device Node to Control Plane over outbound authenticated WebSocket and HTTPS
 4. Device Node to local Tool Runtime
 5. Restricted child process to the host filesystem and network
 

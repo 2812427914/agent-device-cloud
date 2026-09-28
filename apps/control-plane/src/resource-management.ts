@@ -142,6 +142,7 @@ export function registerResourceManagement(
     requireOwner: (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
     accountOf: (request: FastifyRequest) => string;
     now: () => Date;
+    disconnectNode?: (nodeId: string) => void;
   }
 ) {
   const { store, requireOwner, accountOf, now } = options;
@@ -217,6 +218,7 @@ export function registerResourceManagement(
       revision,
       audit(request, "node.deleted", { nodeId: node.nodeId, label: node.label })
     );
+    options.disconnectNode?.(node.nodeId);
     return { deleted: true };
   });
   app.patch("/api/v1/grants/:grantId", { preHandler: requireOwner }, async (request) => {

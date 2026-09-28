@@ -140,13 +140,18 @@ export interface PairNodeInput {
   now: Date;
 }
 
+export interface PairNodeResult {
+  node: NodeRecord;
+  replacedNodeIds: string[];
+}
+
 export interface Store {
   migrate(): Promise<void>;
   close(): Promise<void>;
   putAccount(account: AccountRecord): Promise<void>;
   getAccount(accountId: string): Promise<AccountRecord | undefined>;
   putPairingCode(code: PairingCodeRecord): Promise<void>;
-  pairNode(input: PairNodeInput): Promise<NodeRecord | undefined>;
+  pairNode(input: PairNodeInput): Promise<PairNodeResult | undefined>;
   getNode(nodeId: string): Promise<NodeRecord | undefined>;
   listNodes(accountId: string): Promise<NodeRecord[]>;
   updateNodePresence(
@@ -154,6 +159,7 @@ export interface Store {
     capability: CapabilityAdvertisement,
     now: Date
   ): Promise<NodeRecord | undefined>;
+  touchNodePresences(nodeIds: string[], now: Date): Promise<void>;
   rotateNodeKey(nodeId: string, publicKey: string, now: Date): Promise<boolean>;
   revokeNode(nodeId: string, now: Date): Promise<boolean>;
   updateNode(
