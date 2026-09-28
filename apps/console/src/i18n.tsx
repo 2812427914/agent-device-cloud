@@ -628,6 +628,7 @@ export const zh = {
   "Choose a new password": "设置新密码",
   "Your devices, connected to your agents.": "将你的设备，连接到你的 Agent。",
   "Continue with GitHub": "使用 GitHub 继续",
+  "Connecting to GitHub…": "正在连接 GitHub…",
   "Connect GitHub": "关联 GitHub",
   "GitHub connected": "已关联 GitHub",
   "or use email": "或使用邮箱",

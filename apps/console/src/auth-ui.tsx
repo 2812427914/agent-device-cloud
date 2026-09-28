@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Cable, Github } from "lucide-react";
+import { Cable, Github, LoaderCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { LanguageSelector, translateError, useI18n, type Message } from "./i18n.tsx";
 
@@ -83,6 +83,7 @@ export function AuthPage({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<Message>();
   const [busy, setBusy] = useState(false);
+  const [githubPending, setGithubPending] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
   useEffect(() => {
     apiRequest("/api/v1/auth/config")
@@ -92,6 +93,7 @@ export function AuthPage({
   useEffect(() => {
     setError("");
     setNotice(undefined);
+    setGithubPending(false);
     setVerificationEmail("");
   }, [location.pathname]);
   const callbackURL = `${window.location.origin}${oauth ? `/login${oauthSearch}` : "/app"}`;
@@ -117,8 +119,12 @@ export function AuthPage({
       setBusy(false);
     }
   };
-  const social = () =>
-    action(async () => {
+  const social = async () => {
+    setBusy(true);
+    setGithubPending(true);
+    setError("");
+    setNotice(undefined);
+    try {
       const result = await apiRequest("/api/auth/sign-in/social", {
         method: "POST",
         body: JSON.stringify({
@@ -130,7 +136,12 @@ export function AuthPage({
         })
       });
       window.location.assign(result.url);
-    });
+    } catch (error) {
+      setError((error as Error).message);
+      setGithubPending(false);
+      setBusy(false);
+    }
+  };
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -196,6 +207,12 @@ export function AuthPage({
   };
   return (
     <AuthLayout>
+      {githubPending ? (
+        <div className="auth-redirect-status" role="status" aria-live="assertive" aria-busy="true">
+          <LoaderCircle className="button-spinner" size={22} aria-hidden="true" />
+          <span>{t("Connecting to GitHub…")}</span>
+        </div>
+      ) : null}
       <h1>{t(title[mode])}</h1>
       <p className="description">{t("Your devices, connected to your agents.")}</p>
       {params.has("error") ? (
@@ -234,9 +251,14 @@ export function AuthPage({
                 className="secondary social-button"
                 disabled={busy || disabled}
                 onClick={social}
+                aria-busy={githubPending}
               >
-                <Github size={18} />
-                {t("Continue with GitHub")}
+                {githubPending ? (
+                  <LoaderCircle className="button-spinner" size={18} aria-hidden="true" />
+                ) : (
+                  <Github size={18} />
+                )}
+                {t(githubPending ? "Connecting to GitHub…" : "Continue with GitHub")}
               </button>
               <div className="auth-divider">
                 <span>{t("or use email")}</span>
