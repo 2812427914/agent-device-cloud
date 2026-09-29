@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Brand } from "./auth-ui.tsx";
 import { LanguageSelector, useI18n } from "./i18n.tsx";
 
-export const repositoryUrl = "https://github.com/2812427914/agent-device-cloud";
+export const repositoryUrl = "https://github.com/zionforge/agent-device-cloud";
 
 const navigation = [
   { label: "Product", path: "/" },

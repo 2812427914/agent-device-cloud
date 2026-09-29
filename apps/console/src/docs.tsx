@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useI18n, type Message } from "./i18n.tsx";
-import { PublicHeader } from "./public-header.tsx";
+import { PublicHeader, repositoryUrl } from "./public-header.tsx";
 
 export type DocsPageId =
   | "overview"
@@ -2058,18 +2058,10 @@ function ContributingGuide() {
           </li>
         </ol>
         <nav className="docs-inline-links" aria-label={copy("Repository links", "仓库链接")}>
-          <a
-            href="https://github.com/2812427914/agent-device-cloud/issues"
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a href={`${repositoryUrl}/issues`} target="_blank" rel="noreferrer">
             {copy("Browse issues", "查看 Issues")}
           </a>
-          <a
-            href="https://github.com/2812427914/agent-device-cloud"
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a href={repositoryUrl} target="_blank" rel="noreferrer">
             {copy("Open repository", "打开仓库")}
           </a>
         </nav>
@@ -2146,7 +2138,7 @@ pnpm audit --prod`}
         </p>
         <a
           className="docs-text-link"
-          href="https://github.com/2812427914/agent-device-cloud/security"
+          href={`${repositoryUrl}/security`}
           target="_blank"
           rel="noreferrer"
         >

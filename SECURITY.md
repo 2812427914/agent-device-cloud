@@ -8,7 +8,7 @@ and the current hosted preview. Older commits and private forks do not receive b
 ## Report a vulnerability
 
 Do not open a public issue for a suspected vulnerability. Use
-[GitHub private vulnerability reporting](https://github.com/2812427914/agent-device-cloud/security/advisories/new).
+[GitHub private vulnerability reporting](https://github.com/zionforge/agent-device-cloud/security/advisories/new).
 If that form is unavailable, contact the repository owner privately through GitHub before sharing
 technical details.
 

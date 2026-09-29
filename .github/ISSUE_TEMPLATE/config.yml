@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/2812427914/agent-device-cloud/security/advisories/new
+    url: https://github.com/zionforge/agent-device-cloud/security/advisories/new
     about: Report suspected vulnerabilities privately.
   - name: Documentation
-    url: https://github.com/2812427914/agent-device-cloud/tree/main/docs
+    url: https://github.com/zionforge/agent-device-cloud/tree/main/docs
     about: Review architecture, deployment and product documentation before filing an issue.
