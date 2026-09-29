@@ -6,6 +6,7 @@ import {
   Bot,
   Check,
   FileCode2,
+  Github,
   KeyRound,
   Laptop,
   Network,
@@ -17,7 +18,7 @@ import { Link } from "react-router-dom";
 import { trackAnalytics } from "./analytics.tsx";
 import { useI18n, type Message } from "./i18n.tsx";
 import { LatestUpdates } from "./public-site.tsx";
-import { PublicFooter, PublicHeader } from "./public-header.tsx";
+import { PublicFooter, PublicHeader, repositoryUrl } from "./public-header.tsx";
 
 const useCases: Array<{
   number: string;
@@ -200,6 +201,10 @@ adc invoke file.read --node node_example \\
                 {t(signedIn ? "Open console" : "Create an account")}
                 <ArrowRight size={17} />
               </Link>
+              <a className="secondary" href={repositoryUrl} target="_blank" rel="noreferrer">
+                <Github size={17} />
+                {t("View on GitHub")}
+              </a>
               <Link to="/docs/architecture" className="text-link">
                 {t("Read the architecture")}
                 <ArrowRight size={16} />

@@ -91,6 +91,8 @@ export const zh = {
     "Agent 继续使用 MCP、CLI 或 SDK；ADC 负责授权和路由，由选定的 Mac 或 Linux 设备执行工具。",
   "Connect a device": "连接设备",
   "Read the architecture": "了解架构",
+  "View on GitHub": "在 GitHub 查看",
+  "GitHub repository": "GitHub 仓库",
   "Live control plane": "实时控制面",
   "Agent request": "Agent 请求",
   "Call a local MCP tool": "调用本地 MCP 工具",

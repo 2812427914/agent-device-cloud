@@ -245,6 +245,17 @@ details {
 .public-header nav a.active {
   font-weight: 600;
 }
+.public-header > .row-actions {
+  flex-wrap: nowrap;
+}
+.public-github-link {
+  border-color: var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+.public-github-link:hover {
+  border-color: #c8c8c8;
+}
 .hero {
   max-width: 1408px;
   margin: 0 auto;

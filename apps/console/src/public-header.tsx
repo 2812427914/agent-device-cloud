@@ -1,7 +1,9 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Github } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Brand } from "./auth-ui.tsx";
 import { LanguageSelector, useI18n } from "./i18n.tsx";
+
+export const repositoryUrl = "https://github.com/2812427914/agent-device-cloud";
 
 const navigation = [
   { label: "Product", path: "/" },
@@ -43,6 +45,16 @@ export function PublicHeader({ signedIn }: { signedIn: boolean }) {
         })}
       </nav>
       <div className="row-actions">
+        <a
+          className="icon-button public-github-link"
+          href={repositoryUrl}
+          target="_blank"
+          rel="noreferrer"
+          title={t("GitHub repository")}
+          aria-label={t("GitHub repository")}
+        >
+          <Github size={18} />
+        </a>
         <LanguageSelector />
         <Link className="secondary" to={start}>
           {t(signedIn ? "Open console" : "Sign in")}
@@ -64,7 +76,7 @@ export function PublicFooter() {
         <Link to="/docs/security">{t("Security")}</Link>
         <Link to="/privacy">{locale === "zh-CN" ? "隐私" : "Privacy"}</Link>
         <Link to="/telemetry">{locale === "zh-CN" ? "遥测策略" : "Telemetry"}</Link>
-        <a href="https://github.com/2812427914/agent-device-cloud" target="_blank" rel="noreferrer">
+        <a href={repositoryUrl} target="_blank" rel="noreferrer">
           GitHub
         </a>
       </nav>
