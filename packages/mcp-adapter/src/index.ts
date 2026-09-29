@@ -167,6 +167,30 @@ function toolDefinition(
   };
 }
 
+export function projectToolDefinitions(
+  options: Pick<McpAdapterOptions, "context" | "allowedTools">
+): Tool[] {
+  const allowed = options.allowedTools ?? ToolNameSchema.options;
+  return allowed.flatMap((tool) => {
+    const definition = toolDefinition(
+      options.context,
+      tool,
+      options.context.toolDefinitions?.[tool]
+    );
+    if (!definition) return [];
+    if (!isBuiltinTool(tool)) {
+      const schema = options.context.toolDefinitions?.[tool]?.inputSchema;
+      if (!schema) return [];
+      try {
+        new AjvJsonSchemaValidator().getValidator(schema as JsonSchemaType);
+      } catch {
+        return [];
+      }
+    }
+    return [definition];
+  });
+}
+
 export class McpInvocationAdapter {
   constructor(private readonly options: McpAdapterOptions) {}
 
@@ -206,14 +230,6 @@ export function createMcpServer(options: McpAdapterOptions): Server {
   );
   const adapter = new McpInvocationAdapter(options);
   const allowed = options.allowedTools ?? ToolNameSchema.options;
-  const projectedTools = allowed.flatMap((tool) => {
-    const definition = toolDefinition(
-      options.context,
-      tool,
-      options.context.toolDefinitions?.[tool]
-    );
-    return definition ? [definition] : [];
-  });
   const argsValidators = new Map<
     ToolId,
     (
@@ -244,7 +260,7 @@ export function createMcpServer(options: McpAdapterOptions): Server {
       }
     }
   }
-  const tools = projectedTools.filter((tool) => argsValidators.has(tool.name));
+  const tools = projectToolDefinitions(options).filter((tool) => argsValidators.has(tool.name));
   const toolsById = new Map(tools.map((tool) => [tool.name, tool]));
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));

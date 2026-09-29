@@ -273,6 +273,9 @@ describe("PostgresStore", () => {
       expiresAt: new Date(createdAt.getTime() + 60_000).toISOString()
     });
     await expect(
+      store.getApprovalByInvocation(item.invocation.invocationId)
+    ).resolves.toMatchObject({ approvalId: approval.approvalId });
+    await expect(
       store.resolveApproval(approval.approvalId, "approved", new Date())
     ).resolves.toMatchObject({ status: "approved" });
     await expect(

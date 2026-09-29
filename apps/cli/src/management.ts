@@ -46,6 +46,7 @@ export const managementUsage = `Account management:
   adc device revoke|remove DEVICE --yes
   adc access create --name NAME [--devices LIST] [--folders all|none|LIST]
                     [--capabilities read|write|run|templates] [--tools LIST]
+                    [--profile read-only|workspace-write|approve-required|unattended]
                     [--approval never|writes|execute|always] [--project PROJECT]
                     [--file JSON]
   adc access list | show ACCESS

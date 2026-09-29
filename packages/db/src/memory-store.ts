@@ -362,6 +362,12 @@ export class MemoryStore implements Store {
     return approval ? clone(approval) : undefined;
   }
 
+  async getApprovalByInvocation(invocationId: string): Promise<ApprovalRecord | undefined> {
+    const approvalId = this.approvalByInvocation.get(invocationId);
+    if (!approvalId) return;
+    return this.getApproval(approvalId);
+  }
+
   async listApprovals(accountId: string): Promise<ApprovalRecord[]> {
     return [...this.approvals.values()]
       .filter((approval) => approval.accountId === accountId)

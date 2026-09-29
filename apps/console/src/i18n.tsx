@@ -499,8 +499,8 @@ export const zh = {
   "Token-based MCP": "Token 模式 MCP",
   "Access-key MCP": "访问密钥模式 MCP",
   "Official Skill": "官方 Skill",
-  "The official Skill orchestrates the same adc CLI and never reads device credentials.":
-    "官方 Skill 调用同一套 adc CLI，且不会读取设备凭据。",
+  "Install the complete official Skill directory with your Agent host. It discovers live tools and devices, follows approvals and task results, and never reads device credentials.":
+    "请通过 Agent 宿主安装完整的官方 Skill 目录。它会发现实时工具与设备、跟踪审批和任务结果，并且不会读取设备凭据。",
   "Tools use the same schemas and policy path across HTTP, CLI, MCP, SDK and Skill.":
     "HTTP、CLI、MCP、SDK 和 Skill 共用相同的工具 Schema 与策略链路。",
   "Read tools": "读取工具",

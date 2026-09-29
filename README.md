@@ -254,6 +254,8 @@ project placement:
 
 ```bash
 adc node list --json
+adc tool list --json
+adc tool show file.read --json
 adc invoke file.read --node node_example --args '{"path":"/Users/me/work/README.md"}' --json
 adc invoke file.write --node node_example \
   --args '{"path":"/Users/me/work/notes.txt","content":"hello"}' \
@@ -261,6 +263,7 @@ adc invoke file.write --node node_example \
 adc invoke shell.exec --node node_example \
   --args '{"cwd":"/Users/me/work","command":"pnpm test"}' \
   --idempotency-key test-workspace-once --json
+adc invocation status <invocation-id> --json
 adc task status <job-id> --json
 adc artifact get <artifact-id> --output ./artifact.log --json
 adc audit show <invocation-id> --json
@@ -272,7 +275,8 @@ adc logout
 
 Device policy, access, connection, project and approval management are available through
 `adc device`, `adc access`, `adc connection`, `adc project` and `adc approval`; run `adc --help`
-for their machine-readable forms. `adc update --check` compares the installed build with the
+for command usage and add `--json` to operations whose output will be parsed. `adc update --check`
+compares the installed build with the
 current platform archive; `adc update` downloads the checksummed release, switches atomically and
 restarts the Connector while preserving identity, folders and receipts. The current release format
 contains its Node.js runtime, so updates download the complete platform archive.
@@ -308,7 +312,10 @@ Token-based MCP clients can use:
 }
 ```
 
-The [official Skill](skills/agent-device-cloud/SKILL.md) orchestrates public CLI operations.
+The [official Skill](skills/agent-device-cloud/SKILL.md) orchestrates public CLI operations. Install
+the complete `skills/agent-device-cloud` directory with the Agent host's Skill installer; the
+`references/` files are part of the contract, and a source checkout is not automatically visible to
+every Agent host.
 SDK callers use `AdcClient`, `buildInvocation` and the same scoped Agent token. All four entry points
 use the same authorization, placement and receipt path. Side effects require a stable idempotency key.
 CLI exits 20–24 represent denied, approval required, offline, unknown outcome and cancelled.

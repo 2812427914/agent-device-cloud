@@ -38,7 +38,13 @@ async function fixture(now?: () => Date) {
   const store = new MemoryStore();
   const app = await createControlPlane({
     store,
-    access: accessFixture({ cookie }),
+    access: accessFixture({
+      cookie,
+      agents: {
+        "approval-agent-token": { accountId: "acct_primary", grantId: "grant_example" },
+        "other-agent-token": { accountId: "acct_primary", grantId: "grant_other" }
+      }
+    }),
     ...(now ? { now } : {})
   });
   apps.push(app);
@@ -453,7 +459,7 @@ describe("control plane", () => {
       profile: "approve-required",
       nodeIds: [paired.nodeId],
       rootIds: ["root_workspace"],
-      allowedTools: ["file.write"]
+      allowedTools: ["file.write", "task.status"]
     });
     const now = new Date();
     const invocation = InvocationSchema.parse({
@@ -480,7 +486,17 @@ describe("control plane", () => {
       status: "approval_required",
       error: { code: "approval_required" }
     });
-    await expect(node.poll(writeCapability)).resolves.toEqual({ dispatch: null });
+    const agent = new AdcClient("http://adc.test", "approval-agent-token", fetchFor(app));
+    await expect(agent.invocationStatus(invocation.invocationId)).resolves.toMatchObject({
+      status: "approval_required",
+      error: { details: { approvalId: expect.any(String) } }
+    });
+    await expect(
+      new AdcClient("http://adc.test", "other-agent-token", fetchFor(app)).invocationStatus(
+        invocation.invocationId
+      )
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(node.poll(writeCapability)).resolves.toMatchObject({ dispatch: null });
 
     const approvalId = pending.error?.details?.approvalId as string;
     const approved = await ownerRequest(app, "POST", `/api/v1/approvals/${approvalId}`, {
@@ -488,6 +504,27 @@ describe("control plane", () => {
     });
     expect(approved.statusCode).toBe(200);
     expect(approved.json()).toMatchObject({ status: "queued" });
+    await expect(agent.invocationStatus(invocation.invocationId)).resolves.toMatchObject({
+      status: "queued",
+      jobId: expect.stringMatching(/^job_/)
+    });
+    const deniedInvocation = InvocationSchema.parse({
+      ...invocation,
+      invocationId: createId("inv"),
+      attemptId: createId("att"),
+      idempotencyKey: "approval-write-denied"
+    });
+    const awaitingDenial = await owner.invoke(deniedInvocation);
+    await ownerRequest(
+      app,
+      "POST",
+      `/api/v1/approvals/${String(awaitingDenial.error?.details?.approvalId)}`,
+      { decision: "denied" }
+    );
+    await expect(agent.invocationStatus(deniedInvocation.invocationId)).resolves.toMatchObject({
+      status: "denied",
+      error: { code: "denied" }
+    });
     const dispatched = await node.poll(
       CapabilitySchema.parse({
         ...capability,

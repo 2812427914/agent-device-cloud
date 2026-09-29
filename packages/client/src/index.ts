@@ -470,6 +470,12 @@ export class AdcClient {
     return ResultSchema.parse(response);
   }
 
+  async invocationStatus(invocationId: string): Promise<InvocationResult> {
+    return ResultSchema.parse(
+      await this.request(`/api/v1/invocations/${encodeURIComponent(invocationId)}`)
+    );
+  }
+
   async taskStatus(jobId: string): Promise<InvocationResult> {
     return ResultSchema.parse(await this.request(`/api/v1/tasks/${encodeURIComponent(jobId)}`));
   }

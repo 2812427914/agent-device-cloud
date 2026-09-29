@@ -193,6 +193,7 @@ export interface Store {
   revokeGrant(accountId: string, grantId: string, now: Date): Promise<boolean>;
   putApproval(approval: ApprovalRecord): Promise<ApprovalRecord>;
   getApproval(approvalId: string): Promise<ApprovalRecord | undefined>;
+  getApprovalByInvocation(invocationId: string): Promise<ApprovalRecord | undefined>;
   listApprovals(accountId: string): Promise<ApprovalRecord[]>;
   resolveApproval(
     approvalId: string,

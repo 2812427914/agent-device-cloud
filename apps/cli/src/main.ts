@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { AdcClient, AdcClientError, buildInvocation } from "@adc/client";
-import { createMcpServer } from "@adc/mcp-adapter";
+import { createMcpServer, projectToolDefinitions } from "@adc/mcp-adapter";
 import { ToolIdSchema, isSideEffectTool, type InvocationResult } from "@adc/protocol";
 import {
   authStatus,
@@ -30,7 +30,9 @@ Usage:
   adc connection list|revoke
   adc approval list|approve|deny
   adc project list|create|roots|root-add
+  adc tool list|show [TOOL]
   adc invoke TOOL --args JSON
+  adc invocation status INVOCATION
   adc task status|result|cancel JOB
   adc artifact get ID
   adc audit show|list
@@ -220,6 +222,24 @@ async function main(): Promise<void> {
     print(await client.createPairingCode(Number(stringFlag(flags, "ttl") ?? 600)), json);
     return;
   }
+  if (domain === "tool" && (action === "list" || action === "show")) {
+    const me = await client.me();
+    if (me.kind !== "agent") throw new Error("Tool discovery requires an Agent connection.");
+    const tools = projectToolDefinitions({
+      context: me.context,
+      allowedTools: me.grant.allowedTools
+    });
+    if (action === "show") {
+      const selector = positionals[2];
+      if (!selector) throw new Error("tool name is required");
+      const tool = tools.find((candidate) => candidate.name === selector);
+      if (!tool) throw new Error(`Tool is not available: ${selector}`);
+      print({ schemaVersion: "0.1", tool }, json);
+      return;
+    }
+    print({ schemaVersion: "0.1", tools }, json);
+    return;
+  }
   if (domain === "invoke") {
     if (!action) throw new Error("tool name is required");
     const tool = ToolIdSchema.parse(action);
@@ -263,6 +283,14 @@ async function main(): Promise<void> {
       ...(stringFlag(flags, "timeout") ? { timeoutMs: Number(stringFlag(flags, "timeout")) } : {})
     });
     const result = await client.invoke(invocation);
+    print(result, json);
+    process.exitCode = exitCode(result);
+    return;
+  }
+  if (domain === "invocation" && action === "status") {
+    const invocationId = positionals[2];
+    if (!invocationId) throw new Error("invocation id is required");
+    const result = await client.invocationStatus(invocationId);
     print(result, json);
     process.exitCode = exitCode(result);
     return;

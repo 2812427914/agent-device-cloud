@@ -12,6 +12,7 @@ import { createMcpServer } from "@adc/mcp-adapter";
 import {
   CapabilitySchema,
   ErrorCodes,
+  InvocationIdSchema,
   InvocationSchema,
   ProtocolError,
   ResultSchema,
@@ -1161,6 +1162,64 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
         dispatch.invocation.authorization.grantId === principal.grantId)
     );
   }
+
+  app.get(
+    "/api/v1/invocations/:invocationId",
+    { preHandler: requireAuthenticated },
+    async (request, reply) => {
+      const { invocationId } = z.object({ invocationId: InvocationIdSchema }).parse(request.params);
+      const principal = principals.get(request)!;
+      const dispatch = await options.store.getDispatchByInvocation(invocationId);
+      if (dispatch) {
+        if (!visibleTask(request, dispatch)) {
+          return apiError(reply, 404, ErrorCodes.NOT_FOUND, "invocation was not found");
+        }
+        if (principal.kind === "agent") {
+          const grant = await options.store.getGrant(principal.grantId);
+          if (
+            !grant?.allowedTools.some((tool) => tool === "task.status" || tool === "task.result")
+          ) {
+            return apiError(reply, 403, ErrorCodes.DENIED, "Task results are not granted.");
+          }
+        }
+        return dispatch.result ?? queuedResult(dispatch);
+      }
+
+      const approval = await options.store.getApprovalByInvocation(invocationId);
+      if (
+        !approval ||
+        approval.accountId !== principal.accountId ||
+        (principal.kind === "agent" &&
+          approval.invocation.authorization.grantId !== principal.grantId)
+      ) {
+        return apiError(reply, 404, ErrorCodes.NOT_FOUND, "invocation was not found");
+      }
+      const approvalExpired = Date.parse(approval.expiresAt) <= now().getTime();
+      if (approval.status === "pending" && !approvalExpired) {
+        return domainResult(approval.invocation, "approval_required", {
+          code: ErrorCodes.APPROVAL_REQUIRED,
+          message: approval.policyDecision.explanation,
+          retryable: false,
+          details: {
+            approvalId: approval.approvalId,
+            expiresAt: approval.expiresAt,
+            reasonCode: approval.policyDecision.reasonCode,
+            policyDecision: approval.policyDecision
+          }
+        });
+      }
+      return domainResult(approval.invocation, "denied", {
+        code:
+          approval.status === "expired" || approvalExpired ? ErrorCodes.EXPIRED : ErrorCodes.DENIED,
+        message:
+          approval.status === "expired" || approvalExpired
+            ? "Approval expired before the invocation was dispatched."
+            : "The invocation was denied by the account owner.",
+        retryable: false,
+        details: { approvalId: approval.approvalId }
+      });
+    }
+  );
 
   app.get("/api/v1/tasks/:jobId", { preHandler: requireAuthenticated }, async (request, reply) => {
     const { jobId } = z.object({ jobId: z.string() }).parse(request.params);

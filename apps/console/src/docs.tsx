@@ -977,17 +977,26 @@ function Integrations() {
 adc access list --json
 adc connect ACCESS
 adc node list --json
+adc tool list --json
+adc tool show file.read --json
 adc invoke file.read --node node_example \\
-  --args '{"path":"/Users/me/work/README.md"}' --json`}
+  --args '{"path":"/Users/me/work/README.md"}' --json
+adc invocation status INVOCATION_ID --json`}
         </CodeBlock>
       </Section>
       <Section id="skill" title={t("Official Skill")}>
         <p>
           {t(
-            "The official Skill orchestrates the same adc CLI and never reads device credentials."
+            "Install the complete official Skill directory with your Agent host. It discovers live tools and devices, follows approvals and task results, and never reads device credentials."
           )}
         </p>
-        <CodeBlock label="Skill">skills/agent-device-cloud/SKILL.md</CodeBlock>
+        <CodeBlock label="Skill">
+          {`skills/agent-device-cloud/
+  SKILL.md
+  references/
+    account-and-device-management.md
+    tool-invocation.md`}
+        </CodeBlock>
       </Section>
     </>
   );
@@ -1108,6 +1117,15 @@ function ApiReference() {
       "/api/v1/invocations",
       copy("Agent", "Agent"),
       copy("Submit a typed tool invocation.", "提交一条类型化工具调用。")
+    ],
+    [
+      "GET",
+      "/api/v1/invocations/:invocationId",
+      copy("Owner or Agent", "账号用户或 Agent"),
+      copy(
+        "Resume an invocation across approval and dispatch.",
+        "跨越审批和派发阶段继续跟踪一条调用。"
+      )
     ],
     [
       "GET",
@@ -1286,8 +1304,8 @@ function ApiReference() {
       <Section id="results" title={copy("Results and task state", "结果与任务状态")}>
         <p>
           {copy(
-            "A successful HTTP response can still carry a domain status such as denied, approval_required or offline. queued and running results include a jobId; read that task until it reaches a terminal state.",
-            "HTTP 请求成功时，业务结果仍可能是 denied、approval_required 或 offline。queued 与 running 结果会包含 jobId；应持续读取该任务，直到进入终态。"
+            "A successful HTTP response can still carry a domain status such as denied, approval_required or offline. Track approval_required by invocationId; queued and running results include a jobId for task polling.",
+            "HTTP 请求成功时，业务结果仍可能是 denied、approval_required 或 offline。使用 invocationId 跟踪待审批调用；queued 与 running 结果会包含用于轮询任务的 jobId。"
           )}
         </p>
         <CodeBlock label="JSON">

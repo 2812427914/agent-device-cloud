@@ -607,6 +607,13 @@ export class PostgresStore implements Store {
     return result.rows[0] ? approvalFromRow(result.rows[0]) : undefined;
   }
 
+  async getApprovalByInvocation(invocationId: string): Promise<ApprovalRecord | undefined> {
+    const result = await this.pool.query("SELECT * FROM adc_approvals WHERE invocation_id = $1", [
+      invocationId
+    ]);
+    return result.rows[0] ? approvalFromRow(result.rows[0]) : undefined;
+  }
+
   async listApprovals(accountId: string): Promise<ApprovalRecord[]> {
     const result = await this.pool.query(
       "SELECT * FROM adc_approvals WHERE account_id = $1 ORDER BY created_at DESC",

@@ -246,7 +246,9 @@ describe("public signup and CLI authentication over HTTP", () => {
       "--folders",
       "/workspace",
       "--tools",
-      "device.list",
+      "device.list,file.read,task.status",
+      "--approval",
+      "always",
       "--json"
     ]);
     expect(access.code, access.stderr).toBe(0);
@@ -300,6 +302,62 @@ describe("public signup and CLI authentication over HTTP", () => {
     expect(JSON.parse(nodes.stdout).nodes).toContainEqual(
       expect.objectContaining({ nodeId: paired.nodeId, label: "CLI Mac" })
     );
+    const tools = await command(["tool", "list", "--json"]);
+    expect(tools.code, tools.stderr).toBe(0);
+    expect(JSON.parse(tools.stdout).tools.map((tool: { name: string }) => tool.name)).toEqual([
+      "device.list",
+      "file.read",
+      "task.status"
+    ]);
+    const readTool = await command(["tool", "show", "file.read", "--json"]);
+    expect(readTool.code, readTool.stderr).toBe(0);
+    expect(JSON.parse(readTool.stdout).tool).toMatchObject({
+      name: "file.read",
+      inputSchema: {
+        properties: {
+          args: { anyOf: expect.any(Array) },
+          target: { properties: { nodeId: { enum: [paired.nodeId] } } }
+        },
+        required: ["args", "target"]
+      }
+    });
+    const pendingInvocation = await command([
+      "invoke",
+      "file.read",
+      "--node",
+      paired.nodeId,
+      "--args",
+      '{"path":"/workspace/README.md"}',
+      "--source",
+      "skill",
+      "--json"
+    ]);
+    expect(pendingInvocation.code, pendingInvocation.stderr).toBe(21);
+    const pending = JSON.parse(pendingInvocation.stdout);
+    expect(pending).toMatchObject({
+      status: "approval_required",
+      invocationId: expect.stringMatching(/^inv_/),
+      error: { details: { approvalId: expect.stringMatching(/^apr_/) } }
+    });
+    const approvedInvocation = await command([
+      "approval",
+      "approve",
+      pending.error.details.approvalId,
+      "--json"
+    ]);
+    expect(approvedInvocation.code, approvedInvocation.stderr).toBe(0);
+    const trackedInvocation = await command([
+      "invocation",
+      "status",
+      pending.invocationId,
+      "--json"
+    ]);
+    expect(trackedInvocation.code, trackedInvocation.stderr).toBe(0);
+    expect(JSON.parse(trackedInvocation.stdout)).toMatchObject({
+      status: "queued",
+      invocationId: pending.invocationId,
+      jobId: expect.stringMatching(/^job_/)
+    });
     const status = await command(["auth", "status", "--json"]);
     expect(status.code, status.stderr).toBe(0);
     expect(JSON.parse(status.stdout)).toMatchObject({

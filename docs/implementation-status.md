@@ -31,9 +31,11 @@
 - Signed outbound WebSocket wake channel, heartbeat-backed presence, immediate reconnect catch-up
   and a 30-second durable fallback poll; wake messages never contain invocation data
 - Persistent owner approval queue with approve, deny and expiry states
-- REST client, CLI, stdio/HTTP MCP adapters and official Skill
+- REST client, CLI, stdio/HTTP MCP adapters and official Skill with live tool-schema discovery
 - Account-management CLI for device enrollment/policy, Agent access, connections, projects,
   approvals and audit; `adc connect` provisions the current CLI without exposing its secret
+- Agent-scoped invocation lookup preserves continuity from pending approval to queued task without
+  resubmitting the operation
 - Local command-template add/list/remove commands with automatic Connector reload
 - Device-side MCP Provider registry for stdio and Streamable HTTP, automatic `tools/list`
   discovery, stable schema-versioned Tool IDs, local `tools/call` forwarding and hot reload
@@ -71,7 +73,7 @@
 
 ## Verified
 
-- 126 passing tests across 29 files on Node.js 22; one opt-in macOS service test skipped (127 total)
+- 130 passing tests across 30 files on Node.js 22; one opt-in macOS service test skipped (131 total)
 - Real PostgreSQL migration, concurrent `SKIP LOCKED` claims and restart persistence
 - Pairing/replay/revoke behavior
 - Symlink escape, secret redaction, command denial, timeout/cancel and output limits
