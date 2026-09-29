@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyticsEventForRequest, analyticsPath, trackAnalytics } from "./analytics.tsx";
-import { publicContent } from "./public-content.ts";
+import { listedPublicContent, publicContent, relatedPublicContent } from "./public-content.ts";
 import { publicRouteMetadata, publicRoutes } from "./site-metadata.ts";
 
 describe("public site metadata", () => {
@@ -9,9 +9,19 @@ describe("public site metadata", () => {
     expect(new Set(paths).size).toBe(paths.length);
     expect(paths).toContain("/");
     expect(paths).toContain("/docs/security");
+    expect(paths).toContain("/docs/api");
+    expect(paths).toContain("/docs/operations");
+    expect(paths).toContain("/docs/contributing");
     expect(paths).toContain("/updates");
+    expect(paths).toContain("/guides/first-device-to-first-tool-call");
+    expect(listedPublicContent.length).toBeGreaterThanOrEqual(8);
     for (const entry of publicContent) {
       expect(publicRouteMetadata(entry.path)).toMatchObject({ path: entry.path });
+      expect(entry.sections.length).toBeGreaterThanOrEqual(3);
+      expect(new Set(entry.sections.map((section) => section.id)).size).toBe(entry.sections.length);
+      expect(relatedPublicContent(entry).every((related) => related.path !== entry.path)).toBe(
+        true
+      );
     }
     expect(publicRouteMetadata("/privacy")?.kind).toBe("website");
     expect(publicRouteMetadata("/articles/ai-agent-behind-nat")?.kind).toBe("article");

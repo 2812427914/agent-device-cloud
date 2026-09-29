@@ -414,6 +414,9 @@ export const zh = {
   "Device connector": "设备连接器",
   Integrations: "集成",
   "Tool reference": "工具参考",
+  "API and errors": "API 与错误",
+  "Operations guide": "运维指南",
+  Contributing: "参与贡献",
   "{count} tools": "{count} 个工具",
   "{count} built-in tools": "{count} 个内置工具",
   Security: "安全",
@@ -471,6 +474,9 @@ export const zh = {
   "Projects are optional groups for legacy or multi-device workflows; they are not a security boundary.":
     "项目用于组织旧流程或多设备工作流，不构成独立安全边界。",
   "Install and pair": "安装与配对",
+  "Authentication, invocation and stable failures": "认证、调用与稳定错误语义",
+  "Health, metrics, backup and upgrades": "健康检查、指标、备份与升级",
+  "Build and review changes": "开发、验证与审查变更",
   "The installer verifies a platform archive, preserves existing identity during upgrades and starts a user service.":
     "安装器会校验平台安装包，在升级时保留现有身份，并启动用户级后台服务。",
   "Access modes": "访问模式",

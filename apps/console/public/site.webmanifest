@@ -1,0 +1,17 @@
+{
+  "name": "Agent Device Cloud",
+  "short_name": "ADC",
+  "description": "Secure device access for AI agents.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#173d27",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

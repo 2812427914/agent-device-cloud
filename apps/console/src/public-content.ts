@@ -26,6 +26,7 @@ export interface PublicContentEntry {
   sections: PublicContentSection[];
   keywords: string[];
   listed: boolean;
+  relatedPaths?: string[];
 }
 
 const text = (en: string, zh: string): LocalizedText => ({ en, "zh-CN": zh });
@@ -35,6 +36,367 @@ export function localize(value: LocalizedText, locale: Locale): string {
 }
 
 export const publicContent: PublicContentEntry[] = [
+  {
+    path: "/updates/public-knowledge-base",
+    kind: "Product update",
+    title: text(
+      "A public knowledge base for an open-source device cloud",
+      "为开源设备云建立公开知识库"
+    ),
+    summary: text(
+      "ADC now publishes indexable documentation, release notes and explicit privacy boundaries from the same versioned source.",
+      "ADC 现在从同一份版本化源码发布可索引文档、版本说明与明确的隐私边界。"
+    ),
+    publishedAt: "2026-09-29",
+    updatedAt: "2026-09-29",
+    readingMinutes: 5,
+    keywords: [
+      "Agent Device Cloud release",
+      "open source AI agent infrastructure",
+      "AI agent documentation",
+      "self-hosted telemetry"
+    ],
+    listed: true,
+    relatedPaths: [
+      "/guides/first-device-to-first-tool-call",
+      "/articles/least-privilege-for-ai-agents",
+      "/updates/websocket-task-wakeups"
+    ],
+    sections: [
+      {
+        id: "published-surface",
+        title: text("Documentation is now part of the product", "文档现在是产品的一部分"),
+        paragraphs: [
+          text(
+            "The public site now publishes task-oriented documentation for setup, authorization, integration, API behavior, operations, troubleshooting and contribution. Each route is statically rendered with its own title, description, canonical URL and structured data.",
+            "公开站点现在提供面向任务的设置、授权、集成、API 行为、运维、故障排查与贡献文档。每个路由都会静态渲染，并拥有独立标题、描述、canonical URL 与结构化数据。"
+          ),
+          text(
+            "The content lives with the implementation instead of in a separate marketing system. A change to a tool, error or operational procedure can therefore update the product and its public explanation in the same review.",
+            "这些内容与实现代码位于同一仓库，而不是独立的营销系统中。因此，工具、错误语义或运维流程发生变化时，可以在同一次审查中同步更新产品与公开说明。"
+          )
+        ]
+      },
+      {
+        id: "discovery",
+        title: text("Search and machine-readable discovery", "搜索与机器可读发现"),
+        paragraphs: [
+          text(
+            "The control plane generates robots.txt, sitemap.xml, an RSS feed and concise llms.txt resources from the same route catalog. Article metadata includes publication dates and Article JSON-LD; documentation uses TechArticle markup.",
+            "控制面会根据同一份路由目录生成 robots.txt、sitemap.xml、RSS 与简明的 llms.txt。文章元数据包含发布时间与 Article JSON-LD，文档则使用 TechArticle 标记。"
+          ),
+          text(
+            "These files make the site understandable to crawlers, but they do not buy trust or guarantee ranking. A stable production hostname, useful references from other sites and continued technically accurate publishing remain operational work.",
+            "这些文件能帮助爬虫理解网站，但不会购买信任，也不保证排名。稳定的生产域名、来自其他网站的有效引用，以及持续发布准确技术内容，仍然需要长期运营。"
+          )
+        ]
+      },
+      {
+        id: "privacy",
+        title: text("Hosted analytics without a self-hosted beacon", "托管分析不变成自托管信标"),
+        paragraphs: [
+          text(
+            "Official hosting can opt into privacy-focused page and onboarding measurements. The browser loads that integration only after checking Global Privacy Control and Do Not Track, and only known route names and a fixed event catalog are accepted.",
+            "官方托管服务可以选择启用隐私友好的页面与接入流程统计。浏览器会先检查 Global Privacy Control 与 Do Not Track，并且只允许已知路由名和固定事件目录。"
+          ),
+          text(
+            "Source builds and self-hosted installations contain no analytics endpoint or site identifier by default. They send nothing to the ADC project unless their own operator explicitly configures both values.",
+            "源码构建与自托管实例默认不包含分析端点或站点标识。除非部署管理员显式配置这两项，否则不会向 ADC 项目发送任何数据。"
+          )
+        ]
+      },
+      {
+        id: "next",
+        title: text("What this foundation is for", "这套基础设施接下来要做什么"),
+        paragraphs: [
+          text(
+            "The goal is not a larger page count. It is a durable public record of what ADC does, what it does not do, how operators verify it and where contributors can improve it. Release notes will stay tied to shipped behavior and guides will be tested against the current CLI.",
+            "目标不是增加页面数量，而是持续公开记录 ADC 能做什么、不能做什么、运维者如何验证，以及贡献者可以从哪里改进。发布说明会继续对应真实行为，指南也会使用当前 CLI 验证。"
+          )
+        ]
+      }
+    ]
+  },
+  {
+    path: "/guides/first-device-to-first-tool-call",
+    kind: "Guide",
+    title: text(
+      "From the first device to the first verified tool call",
+      "从第一台设备到第一次可验证工具调用"
+    ),
+    summary: text(
+      "Pair a Connector, create a narrow Agent authorization and verify the complete execution path.",
+      "配对 Connector、创建最小 Agent 授权，并验证完整执行链路。"
+    ),
+    publishedAt: "2026-09-29",
+    updatedAt: "2026-09-29",
+    readingMinutes: 7,
+    keywords: [
+      "Agent Device Cloud tutorial",
+      "connect AI agent to local files",
+      "MCP device setup",
+      "AI agent local development"
+    ],
+    listed: true,
+    relatedPaths: [
+      "/use-cases/remote-local-development",
+      "/articles/least-privilege-for-ai-agents",
+      "/articles/not-remote-ssh"
+    ],
+    sections: [
+      {
+        id: "prepare",
+        title: text("Prepare one bounded workspace", "准备一个范围明确的工作目录"),
+        paragraphs: [
+          text(
+            "Start with one non-sensitive repository or test directory on a supported macOS or glibc Linux device. The installed Connector includes its runtime, but it needs permission to run a user service and write under the current user's configuration and local binary directories.",
+            "先在受支持的 macOS 或 glibc Linux 设备上选择一个不包含敏感数据的仓库或测试目录。安装后的 Connector 自带运行时，但需要启动用户级服务，以及写入当前用户配置目录与本地二进制目录的权限。"
+          )
+        ],
+        bullets: [
+          text(
+            "Use an HTTPS ADC deployment reachable by the device.",
+            "使用设备能够访问的 HTTPS ADC 部署。"
+          ),
+          text(
+            "Begin with a selected folder, not full-device access.",
+            "从指定目录开始，而不是直接开放整台设备。"
+          ),
+          text("Plan the first call as read-only.", "将第一次调用设计为只读操作。")
+        ]
+      },
+      {
+        id: "pair",
+        title: text("Pair the Connector", "配对 Connector"),
+        paragraphs: [
+          text(
+            "Sign in to the console, create a pairing code under Devices and run the generated command on the target machine. The code is short-lived and one-time. Pairing creates a local Ed25519 identity and starts launchd or systemd --user.",
+            "登录控制台，在「设备」中创建配对码，并在目标机器上运行生成的命令。配对码短时有效且只能使用一次。配对会创建本地 Ed25519 身份，并启动 launchd 或 systemd --user 服务。"
+          )
+        ],
+        code: `curl -fsSL https://devices.example.com/install.sh | sh -s -- \\
+  --url https://devices.example.com --code 'PAIRING_CODE'
+
+adc-node status
+adc-node roots list`
+      },
+      {
+        id: "authorize",
+        title: text("Create the smallest useful Agent access", "创建最小可用的 Agent 授权"),
+        paragraphs: [
+          text(
+            "Choose the paired device, the single workspace folder and read tools such as file.list, file.read and file.search. Keep writes and execution disabled until the read path succeeds. The authorization is a revocable object; a CLI or MCP connection binds to it rather than copying account authority.",
+            "选择已配对设备、单个工作目录，以及 file.list、file.read、file.search 等读取工具。在读取链路成功前，保持写入与执行关闭。授权本身是可撤销对象；CLI 或 MCP 连接会绑定该授权，而不是复制账号管理权限。"
+          )
+        ]
+      },
+      {
+        id: "verify",
+        title: text("Verify execution and evidence", "验证执行与证据"),
+        paragraphs: [
+          text(
+            "Connect the CLI to the authorization, inspect the device and read one known file. Success means more than a response: the device is online, the result is terminal and Activity records the matching policy decision and receipt.",
+            "将 CLI 连接到该授权，查看设备，并读取一个已知文件。成功不仅意味着收到响应：设备应在线，结果应进入终态，「活动记录」中还应存在匹配的策略决策与回执。"
+          )
+        ],
+        code: `adc login --url https://devices.example.com
+adc connect first-agent --json
+adc node list --json
+adc invoke file.read --node node_example \\
+  --args '{"path":"/path/to/workspace/README.md"}' --json`
+      },
+      {
+        id: "expand",
+        title: text("Expand only after the read path works", "读取链路成功后再扩大权限"),
+        paragraphs: [
+          text(
+            "Add file.patch or a local test template only when the workflow needs it. Use approval for writes or execution while evaluating a new Agent. If a request fails, preserve its error code and invocation identity instead of granting broad access as a first response.",
+            "仅在工作流确实需要时增加 file.patch 或本地测试模板。评估新的 Agent 时，应让写入或执行经过审批。如果请求失败，应先保留错误码和调用身份，而不是首先扩大权限。"
+          )
+        ]
+      }
+    ]
+  },
+  {
+    path: "/articles/least-privilege-for-ai-agents",
+    kind: "Engineering",
+    title: text(
+      "Least privilege for AI agents is an intersection, not a checkbox",
+      "AI Agent 的最小权限是多层交集，不是一个开关"
+    ),
+    summary: text(
+      "A practical authorization model that keeps account ownership, Agent grants, device policy and local scope independent.",
+      "一种让账号归属、Agent 授权、设备策略与本地范围相互独立的实用授权模型。"
+    ),
+    publishedAt: "2026-09-29",
+    updatedAt: "2026-09-29",
+    readingMinutes: 8,
+    keywords: [
+      "AI agent least privilege",
+      "MCP authorization",
+      "AI agent access control",
+      "device-side policy"
+    ],
+    listed: true,
+    relatedPaths: [
+      "/articles/not-remote-ssh",
+      "/guides/first-device-to-first-tool-call",
+      "/articles/ai-agent-behind-nat"
+    ],
+    sections: [
+      {
+        id: "why",
+        title: text("Why one permission switch is insufficient", "为什么一个权限开关不够"),
+        paragraphs: [
+          text(
+            "An Agent credential, a cloud policy and a local machine answer different questions. Who owns the resource? Which Agent may request work? What has the device owner exposed right now? Which tool does the live Connector actually support?",
+            "Agent 凭据、云端策略与本地机器回答的是不同问题：资源属于谁？哪个 Agent 可以请求工作？设备所有者当前开放了什么？在线 Connector 实际支持哪些工具？"
+          ),
+          text(
+            "Collapsing those answers into one broad role makes drift hard to see and revocation hard to reason about. ADC evaluates them as independent layers and allows work only through their intersection.",
+            "把这些答案压缩成一个宽泛角色，会让配置漂移难以发现、撤销行为难以推理。ADC 将它们作为独立层评估，只有权限交集允许的工作才能继续。"
+          )
+        ]
+      },
+      {
+        id: "layers",
+        title: text("The five effective boundaries", "五层有效边界"),
+        paragraphs: [
+          text(
+            "Account ownership prevents cross-account access. An Agent authorization selects devices, folders and tools. Device policy can make exposed folders read-only or disable execution. Local Connector scope determines which paths are disclosed. Live capability confirms that the requested tool is currently available.",
+            "账号归属阻止跨账号访问；Agent 授权选择设备、目录和工具；设备策略可以把目录设为只读或关闭执行；Connector 本地范围决定哪些路径被公开；实时能力确认请求工具当前确实可用。"
+          )
+        ],
+        bullets: [
+          text("No layer can expand a narrower layer.", "任何一层都不能扩大更窄层的权限。"),
+          text(
+            "The device revalidates paths immediately before execution.",
+            "设备会在执行前再次校验路径。"
+          ),
+          text("Policy changes apply to new work immediately.", "策略变更会立即作用于新任务。"),
+          text(
+            "Active work is checked again during lease renewal.",
+            "运行中的任务会在租约续期时再次检查。"
+          )
+        ]
+      },
+      {
+        id: "approval",
+        title: text("Approval is not capability", "审批不等于能力"),
+        paragraphs: [
+          text(
+            "An approval policy answers whether a permitted operation needs a human decision. It cannot make a denied tool, device or path available. Keeping approval independent prevents a click from silently widening the underlying grant.",
+            "审批策略回答的是“已允许的操作是否还需要人工决定”。它不能让被拒绝的工具、设备或路径变得可用。将审批保持为独立层，可以防止一次点击悄然扩大基础授权。"
+          )
+        ]
+      },
+      {
+        id: "operating",
+        title: text("A workable least-privilege routine", "可执行的最小权限流程"),
+        paragraphs: [
+          text(
+            "Create one authorization per Agent role, start with one device and selected folders, and enable only the tools required for the first task. Review denials as evidence of a missing need, not as a reason to switch immediately to full trust.",
+            "按 Agent 角色分别创建授权，从一台设备和指定目录开始，只启用第一次任务需要的工具。应把拒绝视为需求缺口的证据，而不是立即切换到完整信任的理由。"
+          ),
+          text(
+            "When an Agent no longer needs access, revoke the authorization. Its CLI credentials and OAuth bindings become invalid without rotating unrelated users or devices.",
+            "当 Agent 不再需要访问时，撤销对应授权。其 CLI 凭据和 OAuth 连接会失效，无需轮换无关用户或设备。"
+          )
+        ]
+      }
+    ]
+  },
+  {
+    path: "/articles/durable-receipts-for-agent-side-effects",
+    kind: "Engineering",
+    title: text(
+      "Durable receipts make AI agent side effects retryable without pretending they are safe",
+      "持久回执让 AI Agent 副作用可恢复，而不是假装重试总是安全"
+    ),
+    summary: text(
+      "How idempotency keys, a device-side ledger and explicit unknown outcomes prevent silent duplicate execution.",
+      "幂等键、设备侧账本与显式未知结果如何避免静默重复执行。"
+    ),
+    publishedAt: "2026-09-29",
+    updatedAt: "2026-09-29",
+    readingMinutes: 8,
+    keywords: [
+      "AI agent idempotency",
+      "durable execution receipt",
+      "distributed task retry",
+      "unknown outcome"
+    ],
+    listed: true,
+    relatedPaths: [
+      "/updates/websocket-task-wakeups",
+      "/articles/least-privilege-for-ai-agents",
+      "/articles/ai-agent-behind-nat"
+    ],
+    sections: [
+      {
+        id: "ambiguity",
+        title: text("The dangerous moment is after execution", "危险发生在执行之后"),
+        paragraphs: [
+          text(
+            "A network failure before a command starts is easy to retry. A failure after a file was written or a command completed, but before the result reached the control plane, is different: the caller cannot know whether the effect happened.",
+            "命令开始前发生网络故障，通常可以安全重试。但如果文件已经写入或命令已经完成，只是结果还没到达控制面时连接中断，调用方就无法确定副作用是否已经发生。"
+          ),
+          text(
+            "Treating every timeout as failure invites duplicate writes, duplicate deployments and repeated external actions. Treating every timeout as success hides real failures. The ambiguity must be represented directly.",
+            "把所有超时都当成失败，会导致重复写入、重复部署或重复外部操作；把所有超时都当成成功，又会掩盖真实失败。系统必须直接表达这种不确定性。"
+          )
+        ]
+      },
+      {
+        id: "identity",
+        title: text("Bind retries to the same identity", "让重试绑定同一身份"),
+        paragraphs: [
+          text(
+            "ADC requires a stable idempotency key for writes, process execution, templates, tests and custom MCP tools. The device combines the actor and key with the normalized input, so an exact retry can reuse a receipt while a different request using the same key is rejected as a conflict.",
+            "ADC 要求写入、进程执行、模板、测试和自定义 MCP 工具提供稳定幂等键。设备会把调用者与幂等键、规范化输入绑定；完全相同的重试可以复用回执，而使用同一键提交不同请求会被判定为冲突。"
+          )
+        ],
+        bullets: [
+          text(
+            "Generate the key at the workflow boundary, not inside a retry loop.",
+            "在工作流边界生成幂等键，而不是在重试循环里生成。"
+          ),
+          text(
+            "Reuse it only for the exact same intended effect.",
+            "只为完全相同的预期副作用复用该键。"
+          ),
+          text(
+            "Keep invocation and attempt IDs in logs and audit correlation.",
+            "在日志和审计关联中保留调用 ID 与尝试 ID。"
+          )
+        ]
+      },
+      {
+        id: "ledger",
+        title: text("The device keeps the decisive evidence", "设备保留决定性证据"),
+        paragraphs: [
+          text(
+            "Before a side effect runs, the Connector reserves the identity in a fsynced local ledger. After execution it persists the terminal receipt before reporting it. A reconnect can therefore reconcile completed local work even when the completion request was lost.",
+            "副作用执行前，Connector 会在 fsync 的本地账本中预留该身份；执行后先持久保存终态回执，再上报控制面。因此即使完成请求丢失，重连后仍可核对设备上已经完成的工作。"
+          )
+        ]
+      },
+      {
+        id: "unknown",
+        title: text("Unknown outcome is a safety result", "未知结果是一种安全结果"),
+        paragraphs: [
+          text(
+            "If the device can prove neither a terminal receipt nor that execution never began, ADC returns unknown_outcome. Automation must stop and reconcile the target resource. It must not create a new idempotency key and try again.",
+            "如果设备既无法证明存在终态回执，也无法证明执行从未开始，ADC 会返回 unknown_outcome。自动化必须停止并核对目标资源，不能创建新的幂等键再次尝试。"
+          ),
+          text(
+            "This is less convenient than claiming exactly-once execution, but it is honest. Exactly-once side effects across a process, filesystem and network are not generally available without cooperation from the affected resource.",
+            "这比宣称“精确一次执行”更不方便，但更诚实。跨进程、文件系统和网络的副作用，若没有目标资源配合，通常无法保证精确一次。"
+          )
+        ]
+      }
+    ]
+  },
   {
     path: "/updates/websocket-task-wakeups",
     kind: "Product update",
@@ -106,7 +468,7 @@ export const publicContent: PublicContentEntry[] = [
           )
         ],
         code: `adc_node_wake_connections
-adc_node_wake_total{outcome="sent|offline"}
+adc_node_wake_total{outcome="attempted|offline"}
 adc_node_poll_total{outcome="dispatched|idle|denied"}`
       }
     ]
@@ -452,4 +814,22 @@ export const listedPublicContent = publicContent.filter((entry) => entry.listed)
 export function publicContentEntry(pathname: string): PublicContentEntry | undefined {
   const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
   return publicContent.find((entry) => entry.path === normalized);
+}
+
+export function relatedPublicContent(entry: PublicContentEntry, limit = 3): PublicContentEntry[] {
+  const candidates = listedPublicContent.filter((candidate) => candidate.path !== entry.path);
+  const explicitlyRelated = (entry.relatedPaths ?? [])
+    .map((path) => candidates.find((candidate) => candidate.path === path))
+    .filter((candidate): candidate is PublicContentEntry => !!candidate);
+  const sameKind = candidates.filter(
+    (candidate) =>
+      candidate.kind === entry.kind &&
+      !explicitlyRelated.some((related) => related.path === candidate.path)
+  );
+  const remaining = candidates.filter(
+    (candidate) =>
+      !explicitlyRelated.some((related) => related.path === candidate.path) &&
+      !sameKind.some((related) => related.path === candidate.path)
+  );
+  return [...explicitlyRelated, ...sameKind, ...remaining].slice(0, limit);
 }

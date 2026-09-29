@@ -1,0 +1,57 @@
+name: Feature request
+description: Propose a focused product or integration improvement.
+title: "request: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Describe the workflow that is difficult or impossible today.
+      placeholder: As a device owner or Agent integrator, I need...
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current workaround
+      description: Explain how the work is handled today and where it breaks down.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable behavior, not only a preferred implementation.
+    validations:
+      required: true
+  - type: dropdown
+    id: boundary
+    attributes:
+      label: Primary area
+      options:
+        - Device connector
+        - Authorization and approval
+        - Tool runtime
+        - MCP, CLI or SDK integration
+        - Self-hosting and operations
+        - Console and documentation
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Trust and privacy impact
+      description: Note any new credentials, network access, device data or side effects involved.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I checked the roadmap and existing issues for related work.
+          required: true
+        - label: This request does not contain credentials or private environment data.
+          required: true

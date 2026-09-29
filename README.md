@@ -16,9 +16,10 @@ landing page, authentication and console share a monochrome design and a persist
 简体中文 selector. No shared administration token is used.
 
 Public documentation is available at `/docs`, with quickstart, use cases, authorization concepts,
-architecture, Connector, MCP/CLI/Skill integration, tool reference, security, self-hosting,
-troubleshooting, roadmap and release notes. The authenticated console opens on an account overview
-with setup progress, device health, pending approvals, client connections and recent activity.
+architecture, Connector, MCP/CLI/Skill integration, tool and API reference, security, self-hosting,
+production operations, troubleshooting, contribution guidance, roadmap and release notes. The
+authenticated console opens on an account overview with setup progress, device health, pending
+approvals, client connections and recent activity.
 The public positioning, product contract and delivery direction are recorded in
 [product direction](docs/product-direction.md). The implementation topology, request sequence,
 authorization gates and dispatch state machine are mapped in
@@ -353,6 +354,11 @@ pnpm audit --prod
 Tests start disposable real PostgreSQL processes without Docker. `ADC_TEST_DATABASE_URL` can select
 a disposable external database for store integration tests. In-memory stores are test fixtures;
 the running application always requires PostgreSQL.
+
+Focused fixes, tests, documentation and integrations are welcome. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and report suspected
+vulnerabilities through the private process in [SECURITY.md](SECURITY.md), never through a public
+issue.
 
 ## Operations and execution boundary
 

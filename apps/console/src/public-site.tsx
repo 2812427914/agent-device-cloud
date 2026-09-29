@@ -7,12 +7,14 @@ import {
   Laptop,
   ShieldCheck
 } from "lucide-react";
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useI18n, type Locale } from "./i18n.tsx";
 import {
   listedPublicContent,
   localize,
   publicContentEntry,
+  relatedPublicContent,
   type PublicContentEntry,
   type PublicContentKind
 } from "./public-content.ts";
@@ -96,6 +98,18 @@ export function LatestUpdates() {
 
 export function UpdatesPage({ signedIn }: { signedIn: boolean }) {
   const { locale } = useI18n();
+  const filters: Array<PublicContentKind | "All"> = [
+    "All",
+    "Product update",
+    "Engineering",
+    "Guide",
+    "Use case"
+  ];
+  const [filter, setFilter] = useState<(typeof filters)[number]>("All");
+  const visibleEntries =
+    filter === "All"
+      ? listedPublicContent
+      : listedPublicContent.filter((entry) => entry.kind === filter);
   return (
     <div className="public-content-site">
       <PublicHeader signedIn={signedIn} />
@@ -110,15 +124,37 @@ export function UpdatesPage({ signedIn }: { signedIn: boolean }) {
           </p>
         </header>
         <div className="content-index-rule">
-          <span>{locale === "zh-CN" ? "全部内容" : "All published content"}</span>
+          <span>
+            {filter === "All"
+              ? locale === "zh-CN"
+                ? "全部内容"
+                : "All published content"
+              : kindLabel(filter, locale)}
+          </span>
           <span>
             {locale === "zh-CN"
-              ? `${listedPublicContent.length} 篇`
-              : `${listedPublicContent.length} entries`}
+              ? `${visibleEntries.length} 篇`
+              : `${visibleEntries.length} ${visibleEntries.length === 1 ? "entry" : "entries"}`}
           </span>
         </div>
+        <div
+          className="content-filters"
+          role="group"
+          aria-label={locale === "zh-CN" ? "内容分类" : "Content categories"}
+        >
+          {filters.map((item) => (
+            <button
+              key={item}
+              type="button"
+              aria-pressed={filter === item}
+              onClick={() => setFilter(item)}
+            >
+              {item === "All" ? (locale === "zh-CN" ? "全部" : "All") : kindLabel(item, locale)}
+            </button>
+          ))}
+        </div>
         <div className="content-list content-list-large">
-          {listedPublicContent.map((entry) => (
+          {visibleEntries.map((entry) => (
             <ContentRow key={entry.path} entry={entry} />
           ))}
         </div>
@@ -137,6 +173,7 @@ export function PublicArticle({
 }) {
   const { locale } = useI18n();
   const start = signedIn ? "/app" : "/login";
+  const related = relatedPublicContent(entry);
   return (
     <div className="public-content-site">
       <PublicHeader signedIn={signedIn} />
@@ -186,30 +223,48 @@ export function PublicArticle({
           </div>
 
           {entry.kind !== "Policy" ? (
-            <footer className="article-cta">
-              <div>
-                <strong>
-                  {locale === "zh-CN"
-                    ? "从一台设备和一份最小权限开始。"
-                    : "Start with one device and the smallest useful grant."}
-                </strong>
-                <span>
-                  {locale === "zh-CN"
-                    ? "使用托管预览，或部署同一套开源服务。"
-                    : "Use the hosted preview or deploy the same open-source service."}
-                </span>
-              </div>
-              <Link className="primary" to={start}>
-                {signedIn
-                  ? locale === "zh-CN"
-                    ? "打开控制台"
-                    : "Open console"
-                  : locale === "zh-CN"
-                    ? "创建账号"
-                    : "Create an account"}
-                <ArrowRight size={16} />
-              </Link>
-            </footer>
+            <>
+              <section className="article-related" aria-labelledby="related-content-title">
+                <div>
+                  <h2 id="related-content-title">
+                    {locale === "zh-CN" ? "继续阅读" : "Continue reading"}
+                  </h2>
+                  <Link to="/updates">
+                    {locale === "zh-CN" ? "全部内容" : "All updates"}
+                    <ArrowRight size={15} />
+                  </Link>
+                </div>
+                <div className="content-list">
+                  {related.map((relatedEntry) => (
+                    <ContentRow key={relatedEntry.path} entry={relatedEntry} />
+                  ))}
+                </div>
+              </section>
+              <footer className="article-cta">
+                <div>
+                  <strong>
+                    {locale === "zh-CN"
+                      ? "从一台设备和一份最小权限开始。"
+                      : "Start with one device and the smallest useful grant."}
+                  </strong>
+                  <span>
+                    {locale === "zh-CN"
+                      ? "使用托管预览，或部署同一套开源服务。"
+                      : "Use the hosted preview or deploy the same open-source service."}
+                  </span>
+                </div>
+                <Link className="primary" to={start}>
+                  {signedIn
+                    ? locale === "zh-CN"
+                      ? "打开控制台"
+                      : "Open console"
+                    : locale === "zh-CN"
+                      ? "创建账号"
+                      : "Create an account"}
+                  <ArrowRight size={16} />
+                </Link>
+              </footer>
+            </>
           ) : null}
         </article>
 

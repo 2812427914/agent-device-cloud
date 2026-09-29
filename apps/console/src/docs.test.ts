@@ -13,7 +13,15 @@ describe("documentation navigation", () => {
     expect(docsPageId("/docs/unknown")).toBeUndefined();
     expect(new Set(docsPages.map((page) => page.id)).size).toBe(docsPages.length);
     expect(docsPages.map((page) => page.id)).toEqual(
-      expect.arrayContaining(["use-cases", "architecture", "security", "roadmap"])
+      expect.arrayContaining([
+        "use-cases",
+        "architecture",
+        "api",
+        "security",
+        "operations",
+        "contributing",
+        "roadmap"
+      ])
     );
     expect(new Set(docsPages.map((page) => page.group))).toEqual(
       new Set(["Start", "Understand", "Build", "Operate", "Project"])

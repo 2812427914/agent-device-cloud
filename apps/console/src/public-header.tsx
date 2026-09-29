@@ -27,6 +27,7 @@ export function PublicHeader({ signedIn }: { signedIn: boolean }) {
               : item.path === "/updates"
                 ? pathname.startsWith("/updates") ||
                   pathname.startsWith("/articles") ||
+                  pathname.startsWith("/guides") ||
                   pathname.startsWith("/use-cases")
                 : pathname.startsWith(item.path);
           return (

@@ -32,13 +32,28 @@ const docs: Array<[string, string, string]> = [
   ["connector", "Device connector", "Install, pair and operate the outbound device Connector."],
   ["integrations", "Integrations", "Connect MCP clients, the CLI, SDK and official Skill."],
   ["tools", "Tool reference", "Built-in file, process, template and task tools."],
+  [
+    "api",
+    "API and errors",
+    "Authentication boundaries, invocation envelopes, task states and stable errors."
+  ],
   ["self-hosting", "Self-hosting", "Deploy Agent Device Cloud with PostgreSQL and HTTPS."],
+  [
+    "operations",
+    "Operations guide",
+    "Monitor health, verify backups, perform upgrades and respond to incidents."
+  ],
   [
     "troubleshooting",
     "Troubleshooting",
     "Diagnose connectivity, authorization and execution failures."
   ],
   ["roadmap", "Roadmap", "Current capabilities and explicitly planned work."],
+  [
+    "contributing",
+    "Contributing",
+    "Repository structure, development workflow and review requirements."
+  ],
   ["changelog", "Changelog", "Versioned Agent Device Cloud product changes."]
 ];
 
