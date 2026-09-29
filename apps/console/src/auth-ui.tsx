@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Cable, Github, LoaderCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { analyticsEventForRequest, trackAnalytics } from "./analytics.tsx";
 import { LanguageSelector, translateError, useI18n, type Message } from "./i18n.tsx";
 
 export type Request = (path: string, init?: RequestInit) => Promise<any>;
@@ -31,6 +32,8 @@ export async function apiRequest(path: string, init: RequestInit = {}) {
     Object.assign(error, { status: response.status });
     throw error;
   }
+  const analyticsEvent = analyticsEventForRequest(path, init.method);
+  if (analyticsEvent) trackAnalytics(analyticsEvent);
   return body;
 }
 export function Brand() {

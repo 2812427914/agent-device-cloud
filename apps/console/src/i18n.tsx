@@ -78,6 +78,7 @@ export const zh = {
   "Start connecting": "开始连接",
   "Explore how it works": "了解工作方式",
   Product: "产品",
+  Updates: "动态",
   "Use cases": "使用场景",
   Architecture: "架构",
   Roadmap: "路线图",
@@ -925,8 +926,14 @@ const LocaleContext = createContext({
     void locale;
   }
 });
-export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocale] = useState<Locale>(activeLocale);
+export function LocaleProvider({
+  children,
+  initialLocale
+}: {
+  children: ReactNode;
+  initialLocale?: Locale;
+}) {
+  const [locale, setLocale] = useState<Locale>(() => initialLocale ?? activeLocale);
   activeLocale = locale;
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -945,6 +952,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 export function useI18n() {
   const { locale } = useContext(LocaleContext);
   return {
+    locale,
     t: (key: Message, values?: Record<string, string | number>) => translate(key, values, locale),
     term: (value: string) => (value in zh ? translate(value as Message, {}, locale) : value),
     date: (value: string) =>

@@ -22,7 +22,9 @@ with setup progress, device health, pending approvals, client connections and re
 The public positioning, product contract and delivery direction are recorded in
 [product direction](docs/product-direction.md). The implementation topology, request sequence,
 authorization gates and dispatch state machine are mapped in
-[system architecture](docs/system-architecture.md).
+[system architecture](docs/system-architecture.md). The public content, search indexing, hosted
+analytics and release process are defined in [growth and operations](docs/growth-operations.md).
+Self-hosted installations send no analytics by default.
 
 ## Hosted preview
 

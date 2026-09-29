@@ -14,9 +14,10 @@ import {
   Waypoints
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Brand } from "./auth-ui.tsx";
-import { LanguageSelector, useI18n, type Message } from "./i18n.tsx";
-import { PublicHeader } from "./public-header.tsx";
+import { trackAnalytics } from "./analytics.tsx";
+import { useI18n, type Message } from "./i18n.tsx";
+import { LatestUpdates } from "./public-site.tsx";
+import { PublicFooter, PublicHeader } from "./public-header.tsx";
 
 const useCases: Array<{
   number: string;
@@ -158,9 +159,10 @@ export function Landing({ signedIn }: { signedIn: boolean }) {
     sections.forEach((section) => observer.observe(section));
     return () => observer.disconnect();
   }, []);
+  const origin = typeof window === "undefined" ? "__ADC_PUBLIC_ORIGIN__" : window.location.origin;
   const snippets = {
-    MCP: `${window.location.origin}/mcp`,
-    CLI: `adc login --url ${window.location.origin}
+    MCP: `${origin}/mcp`,
+    CLI: `adc login --url ${origin}
 adc connect ACCESS
 adc node list --json
 adc invoke file.read --node node_example \\
@@ -190,7 +192,11 @@ adc invoke file.read --node node_example \\
               )}
             </p>
             <div className="hero-actions">
-              <Link className="primary" to={start}>
+              <Link
+                className="primary"
+                to={start}
+                onClick={() => trackAnalytics("primary_cta_selected", { placement: "hero" })}
+              >
                 {t(signedIn ? "Open console" : "Create an account")}
                 <ArrowRight size={17} />
               </Link>
@@ -559,6 +565,8 @@ adc invoke file.read --node node_example \\
           </div>
         </section>
 
+        <LatestUpdates />
+
         <section className="landing-section roadmap-section" data-reveal>
           <p className="eyebrow">{t("Roadmap")}</p>
           <h2>{t("A clear boundary between available and planned.")}</h2>
@@ -613,7 +621,11 @@ adc invoke file.read --node node_example \\
               </p>
             </div>
             <div className="row-actions">
-              <Link className="primary" to={start}>
+              <Link
+                className="primary"
+                to={start}
+                onClick={() => trackAnalytics("primary_cta_selected", { placement: "self_host" })}
+              >
                 {t(signedIn ? "Open console" : "Create an account")}
                 <ArrowRight size={16} />
               </Link>
@@ -676,7 +688,11 @@ adc invoke file.read --node node_example \\
           <h2>{t("Connect the tools and environment you already trust.")}</h2>
           <p>{t("Start with one device, one folder and one Agent authorization.")}</p>
           <div className="hero-actions">
-            <Link className="primary" to={start}>
+            <Link
+              className="primary"
+              to={start}
+              onClick={() => trackAnalytics("primary_cta_selected", { placement: "final" })}
+            >
               {t("Connect a device")}
               <ArrowRight size={17} />
             </Link>
@@ -687,16 +703,7 @@ adc invoke file.read --node node_example \\
         </section>
       </main>
 
-      <footer className="public-footer">
-        <Brand />
-        <nav aria-label={t("Documentation")}>
-          <Link to="/docs">{t("Docs")}</Link>
-          <Link to="/docs/security">{t("Security")}</Link>
-          <Link to="/docs/roadmap">{t("Roadmap")}</Link>
-          <Link to="/docs/changelog">{t("Changelog")}</Link>
-        </nav>
-        <LanguageSelector />
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

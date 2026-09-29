@@ -15,6 +15,7 @@ anonymous administration endpoint is created. Use the [README](../README.md) for
 | `ADC_SMTP_URL`, `ADC_SMTP_FROM`                    | Nodemailer SMTP transport and verified sender address                                      |
 | `ADC_OAUTH_DYNAMIC_REGISTRATION`                   | `true` allows MCP OAuth client registration; consent and a valid grant remain required     |
 | `ADC_GITHUB_CLIENT_ID`, `ADC_GITHUB_CLIENT_SECRET` | Optional GitHub OAuth App credentials; both required to enable GitHub login                |
+| `ADC_ANALYTICS_SCRIPT_URL`, `ADC_ANALYTICS_DOMAIN` | Optional Plausible script URL and site hostname; both empty disables browser analytics     |
 | `ADC_TRUSTED_PROXIES`                              | Comma-separated proxy addresses/CIDRs; never trust all public client addresses             |
 | `ADC_CONSOLE_DIR`                                  | Optional built console path; defaults to `apps/console/dist`                               |
 | `ADC_NODE_RELEASE_DIR`                             | Local downloadable client directory; defaults to `dist/node`                               |
@@ -58,6 +59,31 @@ GitHub-only users can add a password through SMTP password reset when enabled. S
 separate from ADC's MCP OAuth provider; either login method can continue MCP's signed consent flow.
 Local automated tests simulate GitHub endpoints and exercise real account/session persistence.
 Finish a real GitHub consent round trip after supplying your OAuth App credentials.
+
+## Search indexing and hosted analytics
+
+Production builds prerender each public route with route-specific titles, descriptions, canonical
+URLs, Open Graph tags and JSON-LD. The Control Plane replaces the build-time origin placeholder with
+`ADC_PUBLIC_URL` and serves:
+
+- `/robots.txt`
+- `/sitemap.xml`
+- `/feed.xml`
+- `/llms.txt`
+- `/llms-full.txt`
+
+Use a stable HTTPS hostname on the standard port before submitting the sitemap to search engines.
+Authenticated, login, OAuth and unknown application routes use the non-prerendered app shell and
+receive `X-Robots-Tag: noindex, nofollow`.
+
+Self-hosted installations do not load an analytics script or send analytics by default. Both
+`ADC_ANALYTICS_SCRIPT_URL` and `ADC_ANALYTICS_DOMAIN` must be explicitly configured to enable the
+Plausible adapter. ADC checks Global Privacy Control and Do Not Track before loading the external
+script, disables Plausible's automatic pageviews, and sends only normalized route paths plus
+allowlisted campaign fields. Product events are limited to coarse onboarding milestones. Invocation
+arguments and results, paths, commands, credentials, email addresses, account names and device labels
+must never be added to analytics properties. See [growth operations](growth-operations.md) and the
+public `/privacy` and `/telemetry` pages for the event and governance policy.
 
 ## Resource lifecycle
 

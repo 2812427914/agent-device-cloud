@@ -10,6 +10,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { trackAnalytics } from "./analytics.tsx";
 import type { Request } from "./auth-ui.tsx";
 import { useI18n, type Message } from "./i18n.tsx";
 import type { NodeRecord } from "./main.tsx";
@@ -113,6 +114,20 @@ export function Overview({
   const activeBindings = data.bindings.filter((binding) => !binding.revokedAt);
   const clientConnections = activeCredentials.length + activeBindings.length;
   const offline = activeNodes.length - onlineNodes.length;
+  useEffect(() => {
+    if (!loaded || !activeNodes.length || !activeGrants.length || !clientConnections) return;
+    try {
+      if (localStorage.getItem("adc.analytics.setup-complete.v1") === "1") return;
+    } catch {
+      /* Browser storage is optional. */
+    }
+    if (!trackAnalytics("setup_completed")) return;
+    try {
+      localStorage.setItem("adc.analytics.setup-complete.v1", "1");
+    } catch {
+      /* Browser storage is optional. */
+    }
+  }, [activeGrants.length, activeNodes.length, clientConnections, loaded]);
   const stats: Array<[Message, number, typeof Cable]> = [
     ["Connected devices", activeNodes.length, Cable],
     ["Online now", onlineNodes.length, Activity],

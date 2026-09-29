@@ -32,6 +32,7 @@ import {
   useLocation,
   useNavigate
 } from "react-router-dom";
+import { AnalyticsEffects } from "./analytics.tsx";
 import {
   AccountSettings,
   AuthLayout,
@@ -49,6 +50,8 @@ import { DeviceSettings } from "./device-settings.tsx";
 import { ConfirmAction } from "./dialog.tsx";
 import { LanguageSelector, LocaleProvider, useI18n, type Message } from "./i18n.tsx";
 import { Overview } from "./overview.tsx";
+import { publicContentEntry } from "./public-content.ts";
+import { PublicContentRoute } from "./public-site.tsx";
 import "./styles.css";
 
 export interface NodeRecord {
@@ -155,6 +158,8 @@ function App() {
   if (location.pathname === "/") return <Landing signedIn={!!user} />;
   if (location.pathname === "/docs" || location.pathname.startsWith("/docs/"))
     return <Documentation signedIn={!!user} />;
+  if (location.pathname === "/updates" || !!publicContentEntry(location.pathname))
+    return <PublicContentRoute signedIn={!!user} />;
   const legacy: Record<string, string> = {
     "/devices": "/app/devices",
     "/projects": "/app/projects",
@@ -1015,6 +1020,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <LocaleProvider>
       <BrowserRouter>
+        <AnalyticsEffects />
         <App />
       </BrowserRouter>
     </LocaleProvider>

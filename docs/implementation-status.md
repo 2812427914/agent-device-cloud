@@ -45,11 +45,16 @@
   permission intersection, dispatch lifecycle, data boundaries, security disclosures and staged roadmap
 - Public documentation center with quickstart, use cases, concepts, architecture, Connector,
   integrations, tool, security, self-hosting, troubleshooting, roadmap and changelog sections
+- Route-level prerendering for 21 public pages with canonical metadata, Open Graph, JSON-LD,
+  sitemap, robots policy, RSS and `llms.txt` discovery resources
+- Typed bilingual product updates, engineering articles, use cases, privacy and telemetry pages
+- Opt-in hosted Plausible analytics with a fixed onboarding event catalog, normalized page paths,
+  GPC/DNT enforcement and no analytics configuration in self-hosted defaults
 - Source-mapped architecture diagrams for system context, pairing, invocation, authorization,
   dispatch state, idempotency, data ownership and current/planned boundaries
 - Account overview with setup progress, device health, active Agent/client counts, approvals and activity
 - `/app` Overview, Devices, optional Projects/Roots, Agent access, Approvals, Activity and Settings
-- 658 typed translations, persisted language preference, locale-aware dates and old-route compatibility
+- 702 typed translations, persisted language preference, locale-aware dates and old-route compatibility
 - Separate internal CLI login and scoped connection credentials; stdio MCP cannot inherit
   account-management access
 - Same-origin local startup, public HTTPS Compose and loopback override, health and protected metrics
@@ -64,7 +69,7 @@
 
 ## Verified
 
-- 123 passing tests across 28 files on Node.js 22; one opt-in macOS service test skipped (124 total)
+- 126 passing tests across 29 files on Node.js 22; one opt-in macOS service test skipped (127 total)
 - Real PostgreSQL migration, concurrent `SKIP LOCKED` claims and restart persistence
 - Pairing/replay/revoke behavior
 - Symlink escape, secret redaction, command denial, timeout/cancel and output limits
@@ -87,7 +92,7 @@
 - Concurrent create-only publication, hidden template roots, symlink aliases to protected files
 - Expired invocation terminal results, completed-receipt replay after expiry, shutdown and lease loss
 - Console production build
-- Both-language React rendering, 653 catalog/placeholder checks, public/docs/console links, auth
+- Both-language React rendering, 702 catalog/placeholder checks, public/docs/console links, auth
   pages, pre-filled management forms, unavailable scopes and deletion dialogs
 - Production entry HTTP smoke: built assets/CSP, login routes, anonymous API denial and OAuth discovery
 - Production dependency audit against npmjs: no known vulnerabilities after updating Nodemailer/Vitest

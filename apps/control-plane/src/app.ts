@@ -46,6 +46,7 @@ import {
   type NodeDistribution
 } from "./distribution.ts";
 import { NodeWakeHub } from "./node-wake.ts";
+import { PublicSite, type HostedAnalyticsOptions } from "./public-site.ts";
 
 export interface ControlPlaneOptions {
   store: Store;
@@ -57,6 +58,7 @@ export interface ControlPlaneOptions {
   consoleDirectory?: string;
   nodeDistribution?: NodeDistribution;
   trustProxy?: string[];
+  analytics?: HostedAnalyticsOptions;
 }
 
 function invocationPath(invocation: Invocation, node: NodeRecord | undefined): string | undefined {
@@ -161,6 +163,9 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
     bodyLimit: 36 * 1024 * 1024,
     trustProxy: options.trustProxy ?? false
   });
+  const analyticsOrigin = options.analytics
+    ? new URL(options.analytics.scriptUrl).origin
+    : undefined;
   await app.register(fastifyWebsocket, {
     options: { maxPayload: 1024 },
     preClose(done) {
@@ -181,7 +186,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
     }
     reply.header(
       "content-security-policy",
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+      `default-src 'self'; script-src 'self'${analyticsOrigin ? ` ${analyticsOrigin}` : ""}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'${analyticsOrigin ? ` ${analyticsOrigin}` : ""}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`
     );
     return payload;
   });
@@ -1447,12 +1452,29 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
   );
 
   if (options.consoleDirectory) {
+    const publicSite = await PublicSite.load(options.consoleDirectory);
     await app.register(fastifyStatic, {
-      root: options.consoleDirectory,
+      root: publicSite.root,
       prefix: "/",
-      wildcard: false
+      wildcard: false,
+      index: false
     });
-    app.get("/*", async (request, reply) => {
+    app.get("/robots.txt", async (_request, reply) =>
+      reply.type("text/plain; charset=utf-8").send(publicSite.robots(options.access.origin))
+    );
+    app.get("/sitemap.xml", async (_request, reply) =>
+      reply.type("application/xml; charset=utf-8").send(publicSite.sitemap(options.access.origin))
+    );
+    app.get("/llms.txt", async (_request, reply) =>
+      reply.type("text/plain; charset=utf-8").send(publicSite.llms(options.access.origin))
+    );
+    app.get("/llms-full.txt", async (_request, reply) =>
+      reply.type("text/plain; charset=utf-8").send(publicSite.llmsFull(options.access.origin))
+    );
+    app.get("/feed.xml", async (_request, reply) =>
+      reply.type("application/rss+xml; charset=utf-8").send(publicSite.feed(options.access.origin))
+    );
+    const serveConsole = async (request: FastifyRequest, reply: FastifyReply) => {
       const pathname = new URL(request.url, options.access.origin).pathname;
       if (pathname.startsWith("/assets/")) {
         return reply.sendFile(pathname.slice(1), {
@@ -1467,8 +1489,15 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       ) {
         return apiError(reply, 404, ErrorCodes.NOT_FOUND, "route was not found");
       }
-      return reply.sendFile("index.html", { cacheControl: false });
-    });
+      const rendered = publicSite.renderHtml(pathname, options.access.origin, options.analytics);
+      if (!rendered.isPublic) reply.header("x-robots-tag", "noindex, nofollow");
+      return reply
+        .type("text/html; charset=utf-8")
+        .header("cache-control", "no-cache")
+        .send(rendered.html);
+    };
+    app.get("/", serveConsole);
+    app.get("/*", serveConsole);
   }
 
   app.addHook("onClose", async () => {

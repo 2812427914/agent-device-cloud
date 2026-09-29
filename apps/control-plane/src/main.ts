@@ -34,6 +34,20 @@ const consoleDirectory =
 if (!existsSync(`${consoleDirectory}/index.html`)) {
   throw new Error("Console build is missing. Run pnpm build before starting the server.");
 }
+const analyticsScriptUrl = process.env.ADC_ANALYTICS_SCRIPT_URL;
+const analyticsDomain = process.env.ADC_ANALYTICS_DOMAIN;
+if (!!analyticsScriptUrl !== !!analyticsDomain) {
+  throw new Error("ADC_ANALYTICS_SCRIPT_URL and ADC_ANALYTICS_DOMAIN must be configured together.");
+}
+if (analyticsScriptUrl) {
+  const analyticsUrl = new URL(analyticsScriptUrl);
+  if (analyticsUrl.protocol !== "https:") {
+    throw new Error("ADC_ANALYTICS_SCRIPT_URL must use HTTPS.");
+  }
+}
+if (analyticsDomain && !/^[a-z0-9.-]{1,253}$/i.test(analyticsDomain)) {
+  throw new Error("ADC_ANALYTICS_DOMAIN must be a hostname.");
+}
 const store = new PostgresStore(databaseURL);
 const mailer = process.env.ADC_SMTP_URL
   ? nodemailer.createTransport(process.env.ADC_SMTP_URL)
@@ -69,6 +83,15 @@ const app = await createControlPlane({
   access: createAccessService(authentication, new IdentityStore(store.pool)),
   logger: true,
   consoleDirectory,
+  ...(analyticsScriptUrl && analyticsDomain
+    ? {
+        analytics: {
+          provider: "plausible" as const,
+          scriptUrl: analyticsScriptUrl,
+          domain: analyticsDomain
+        }
+      }
+    : {}),
   nodeDistribution: {
     directory:
       process.env.ADC_NODE_RELEASE_DIR ??

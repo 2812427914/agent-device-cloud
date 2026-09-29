@@ -683,7 +683,7 @@ adc-node mcp remove github`}
 
 function Integrations() {
   const { t } = useI18n();
-  const origin = window.location.origin;
+  const origin = typeof window === "undefined" ? "__ADC_PUBLIC_ORIGIN__" : window.location.origin;
   return (
     <>
       <PageIntro

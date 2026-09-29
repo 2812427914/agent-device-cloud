@@ -34,6 +34,9 @@ services:
       ADC_OAUTH_DYNAMIC_REGISTRATION: ${ADC_OAUTH_DYNAMIC_REGISTRATION:-true}
       ADC_GITHUB_CLIENT_ID: ${ADC_GITHUB_CLIENT_ID:-}
       ADC_GITHUB_CLIENT_SECRET: ${ADC_GITHUB_CLIENT_SECRET:-}
+      # Disabled by default. Official hosted deployments can configure both values.
+      ADC_ANALYTICS_SCRIPT_URL: ${ADC_ANALYTICS_SCRIPT_URL:-}
+      ADC_ANALYTICS_DOMAIN: ${ADC_ANALYTICS_DOMAIN:-}
       # Only Caddy reaches the API on this private subnet. It replaces forwarded IP headers.
       ADC_TRUSTED_PROXIES: "172.29.74.0/24"
       ADC_CONSOLE_DIR: /app/apps/console/dist
