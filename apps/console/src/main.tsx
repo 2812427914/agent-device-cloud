@@ -67,6 +67,7 @@ export interface NodeRecord {
     rootIds: string[];
     readOnlyRootIds: string[];
     allowExecution: boolean;
+    maxConcurrency: number;
   };
   effectiveCapability?: NodeRecord["capability"];
   capability?: {

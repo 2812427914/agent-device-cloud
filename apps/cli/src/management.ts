@@ -40,7 +40,8 @@ export const managementUsage = `Account management:
   adc device add [--name NAME] [--ttl SECONDS] [--access none|home|full]
   adc device list | show DEVICE
   adc device update DEVICE [--name NAME] [--folders all|none|LIST]
-                    [--read-only none|LIST] [--execution on|off] [--file JSON]
+                    [--read-only none|LIST] [--execution on|off]
+                    [--concurrency 1..32] [--file JSON]
   adc device wait DEVICE [--timeout SECONDS]
   adc device revoke|remove DEVICE --yes
   adc access create --name NAME [--devices LIST] [--folders all|none|LIST]
@@ -86,6 +87,12 @@ function positiveInteger(value: string | undefined, fallback: number, name: stri
   const parsed = Number(value ?? fallback);
   if (!Number.isInteger(parsed) || parsed <= 0)
     throw new Error(`--${name} must be a positive integer`);
+  return parsed;
+}
+
+function nodeConcurrency(value: string): number {
+  const parsed = positiveInteger(value, 6, "concurrency");
+  if (parsed > 32) throw new Error("--concurrency must be between 1 and 32");
   return parsed;
 }
 
@@ -157,14 +164,14 @@ function publicNode(node: ManagedNode) {
     lastSeenAt: node.lastSeenAt ?? null,
     createdAt: node.createdAt,
     accessMode: node.capability?.accessMode ?? "selected",
-    policy:
-      node.accessPolicy ??
-      ({
-        rootAccess: "all",
-        rootIds: [],
-        readOnlyRootIds: [],
-        allowExecution: true
-      } satisfies NodeAccessPolicy),
+    policy: {
+      rootAccess: "all",
+      rootIds: [],
+      readOnlyRootIds: [],
+      allowExecution: true,
+      maxConcurrency: 6,
+      ...node.accessPolicy
+    } satisfies NodeAccessPolicy,
     folders: (node.effectiveCapability ?? node.capability)?.roots ?? [],
     tools: (node.effectiveCapability ?? node.capability)?.tools ?? []
   };
@@ -344,14 +351,14 @@ async function accessSettings(
 }
 
 function nodePolicy(node: ManagedNode): NodeAccessPolicy {
-  return (
-    node.accessPolicy ?? {
-      rootAccess: "all",
-      rootIds: [],
-      readOnlyRootIds: [],
-      allowExecution: true
-    }
-  );
+  return {
+    rootAccess: "all",
+    rootIds: [],
+    readOnlyRootIds: [],
+    allowExecution: true,
+    maxConcurrency: 6,
+    ...node.accessPolicy
+  };
 }
 
 async function updateDevice(client: AdcClient, node: ManagedNode, flags: Flags) {
@@ -375,6 +382,8 @@ async function updateDevice(client: AdcClient, node: ManagedNode, flags: Flags) 
   else if (readOnly) policy.readOnlyRootIds = resolveRootIds(roots, csv(readOnly)!);
   const execution = booleanFlag(stringFlag(flags, "execution"), "execution");
   if (execution !== undefined) policy.allowExecution = execution;
+  const concurrency = stringFlag(flags, "concurrency");
+  if (concurrency !== undefined) policy.maxConcurrency = nodeConcurrency(concurrency);
   if (policy.rootAccess === "all") policy.rootIds = [];
   return client.updateNode(node.nodeId, {
     revision: node.revision ?? 1,

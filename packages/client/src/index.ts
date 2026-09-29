@@ -12,6 +12,7 @@ import {
   type CapabilityAdvertisement,
   type Invocation,
   type InvocationResult,
+  type PolicyDecision,
   type ToolCapability,
   type ToolId
 } from "@adc/protocol";
@@ -44,6 +45,19 @@ export interface NodeAccessPolicy {
   rootIds: string[];
   readOnlyRootIds: string[];
   allowExecution: boolean;
+  maxConcurrency: number;
+}
+
+export interface NodeDispatch {
+  dispatchId: string;
+  leaseToken: string;
+  invocation: Invocation;
+  policyDecision: PolicyDecision;
+}
+
+export interface NodePollResponse {
+  dispatch: NodeDispatch | null;
+  maxConcurrency?: number;
 }
 
 export interface ManagedNode {
@@ -582,10 +596,15 @@ export class NodeApiClient {
     return responseBody;
   }
 
-  async poll(capability: CapabilityAdvertisement): Promise<any> {
+  async poll(
+    capability: CapabilityAdvertisement,
+    state: { activeTaskCount?: number; claim?: boolean } = {}
+  ): Promise<NodePollResponse> {
     return this.signedRequest(`/api/v1/nodes/${encodeURIComponent(this.nodeId!)}/poll`, {
-      capability: CapabilitySchema.parse(capability)
-    });
+      capability: CapabilitySchema.parse(capability),
+      activeTaskCount: state.activeTaskCount ?? 0,
+      claim: state.claim ?? true
+    }) as Promise<NodePollResponse>;
   }
 
   async acknowledge(dispatchId: string, leaseToken: string): Promise<any> {

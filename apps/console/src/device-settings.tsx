@@ -19,14 +19,14 @@ export function DeviceSettings({
   onRevoke: () => void;
 }) {
   const { t } = useI18n();
-  const [policy, setPolicy] = useState(
-    node.accessPolicy ?? {
-      rootAccess: "all" as "all" | "selected",
-      rootIds: [] as string[],
-      readOnlyRootIds: [] as string[],
-      allowExecution: true
-    }
-  );
+  const [policy, setPolicy] = useState({
+    rootAccess: "all" as "all" | "selected",
+    rootIds: [] as string[],
+    readOnlyRootIds: [] as string[],
+    allowExecution: true,
+    ...node.accessPolicy,
+    maxConcurrency: node.accessPolicy?.maxConcurrency ?? 6
+  });
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [grants, setGrants] = useState<
@@ -170,6 +170,22 @@ export function DeviceSettings({
               }
             />
             {t("Allow commands and tests")}
+          </label>
+          <label className="field concurrency-field">
+            {t("Concurrent task limit")}
+            <input
+              type="number"
+              min={1}
+              max={32}
+              step={1}
+              required
+              value={policy.maxConcurrency}
+              onChange={(event) => {
+                const value = event.currentTarget.valueAsNumber;
+                if (Number.isInteger(value))
+                  setPolicy((current) => ({ ...current, maxConcurrency: value }));
+              }}
+            />
           </label>
         </fieldset>
         <div className="affected-agents">

@@ -216,6 +216,8 @@ describe("public signup and CLI authentication over HTTP", () => {
       "/workspace",
       "--execution",
       "off",
+      "--concurrency",
+      "4",
       "--json"
     ]);
     expect(deviceUpdated.code, deviceUpdated.stderr).toBe(0);
@@ -227,7 +229,8 @@ describe("public signup and CLI authentication over HTTP", () => {
         rootAccess: "selected",
         rootIds: ["root_workspace"],
         readOnlyRootIds: ["root_workspace"],
-        allowExecution: false
+        allowExecution: false,
+        maxConcurrency: 4
       }
     });
     const project = await command(["project", "create", "--name", "CLI project", "--json"]);

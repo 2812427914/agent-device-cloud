@@ -9,14 +9,40 @@ const roots = z
   .array(rootId)
   .max(64)
   .refine((ids) => new Set(ids).size === ids.length, "Duplicate folders");
+export const DEFAULT_NODE_MAX_CONCURRENCY = 6;
+export const MAX_NODE_MAX_CONCURRENCY = 32;
 export const NodeAccessPolicySchema = z
   .object({
     rootAccess: z.enum(["all", "selected"]),
     rootIds: roots,
     readOnlyRootIds: roots,
-    allowExecution: z.boolean()
+    allowExecution: z.boolean(),
+    maxConcurrency: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_NODE_MAX_CONCURRENCY)
+      .default(DEFAULT_NODE_MAX_CONCURRENCY)
   })
   .strict();
+export function defaultNodeAccessPolicy(): z.infer<typeof NodeAccessPolicySchema> {
+  return {
+    rootAccess: "all",
+    rootIds: [],
+    readOnlyRootIds: [],
+    allowExecution: true,
+    maxConcurrency: DEFAULT_NODE_MAX_CONCURRENCY
+  };
+}
+export function nodeMaxConcurrency(node: NodeRecord): number {
+  const value = node.accessPolicy?.maxConcurrency;
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= MAX_NODE_MAX_CONCURRENCY
+    ? value
+    : DEFAULT_NODE_MAX_CONCURRENCY;
+}
 export const GrantSettingsSchema = z
   .object({
     name: z.string().trim().min(1).max(128),
@@ -143,6 +169,7 @@ export function registerResourceManagement(
     accountOf: (request: FastifyRequest) => string;
     now: () => Date;
     disconnectNode?: (nodeId: string) => void;
+    wakeNode?: (nodeId: string) => void;
   }
 ) {
   const { store, requireOwner, accountOf, now } = options;
@@ -196,7 +223,7 @@ export function registerResourceManagement(
         "Choose folders already exposed by this device.",
         false
       );
-    return store.updateNode(
+    const updated = await store.updateNode(
       node.accountId,
       node.nodeId,
       { label: body.label, accessPolicy: policy },
@@ -208,6 +235,8 @@ export function registerResourceManagement(
         before: { label: node.label, accessPolicy: node.accessPolicy ?? null }
       })
     );
+    options.wakeNode?.(node.nodeId);
+    return updated;
   });
   app.delete("/api/v1/nodes/:nodeId", { preHandler: requireOwner }, async (request) => {
     const node = await ownedNode(request);

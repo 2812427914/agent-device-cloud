@@ -7,7 +7,7 @@ lost updates.
 ```bash
 adc login --url https://devices.example.com
 adc device add --name "Work Mac" --json
-adc device update "Work Mac" --folders all --execution on --json
+adc device update "Work Mac" --folders all --execution on --concurrency 6 --json
 adc access create --name coding --devices "Work Mac" --capabilities run --approval writes --json
 adc connect coding --json
 ```
@@ -19,9 +19,11 @@ SDKs and non-OAuth clients.
 ## Device controls
 
 Devices → Manage allows renaming, selecting all or specific advertised folders, marking individual
-folders read-only and disabling command/test execution. The same panel shows affected Agents and
-generates a local folder-add command. The Node advertises each exposed absolute path to the server so
-the console, approvals and audit can show the actual resource being authorized.
+folders read-only, disabling command/test execution and setting the concurrent task limit from 1 to 32. New devices default to 6 concurrent tasks. Lowering the limit does not cancel work already
+running; the Node stops claiming work until the active count falls below the saved limit. The same
+panel shows affected Agents and generates a local folder-add command. The Node advertises each
+exposed absolute path to the server so the console, approvals and audit can show the actual resource
+being authorized.
 
 The server computes effective capability from the raw Node advertisement and the saved device
 policy. Local read-only folders cannot become writable through the console. Presence updates do not
@@ -68,12 +70,13 @@ edits and duplicate device names return 409.
 | `PATCH /api/v1/grants/:grantId`  | `revision` and all editable grant settings |
 | `DELETE /api/v1/grants/:grantId` | `revision`                                 |
 
-Device `accessPolicy` contains `rootAccess: all|selected`, internal `rootIds`, `readOnlyRootIds` and
-`allowExecution`. Empty selected roots disable file access. Grant settings contain `name`,
-`profile`, `nodeIds`, `rootAccess`, internal `rootIds`, `allowedTools`, optional `projectId` and
-`approvalPolicy`. Read APIs augment these bindings with their advertised absolute paths. Public tool
-calls use `target.nodeId` plus an absolute `path` or `cwd`; legacy callers may continue sending
-`rootId` plus a relative path. The create route no longer overwrites an existing grant ID.
+Device `accessPolicy` contains `rootAccess: all|selected`, internal `rootIds`, `readOnlyRootIds`,
+`allowExecution` and `maxConcurrency`. Empty selected roots disable file access. Grant settings
+contain `name`, `profile`, `nodeIds`, `rootAccess`, internal `rootIds`, `allowedTools`, optional
+`projectId` and `approvalPolicy`. Read APIs augment these bindings with their advertised absolute
+paths. Public tool calls use `target.nodeId` plus an absolute `path` or `cwd`; legacy callers may
+continue sending `rootId` plus a relative path. The create route no longer overwrites an existing
+grant ID.
 
 Migration `0005_resource_management.sql` adds policies, revisions and deletion timestamps, replacing
 device-name uniqueness with a partial index over non-deleted devices. Existing policies default to

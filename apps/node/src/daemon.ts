@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { AdcClientError, NodeApiClient } from "@adc/client";
+import { AdcClientError, NodeApiClient, type NodeDispatch } from "@adc/client";
 import {
   CapabilitySchema,
   ToolNameSchema,
@@ -11,6 +11,9 @@ import { ToolRuntime, type CommandTemplate, type LocalRoot } from "@adc/tool-run
 import type { McpProviderConfig } from "./config.ts";
 import { McpProviderManager } from "./mcp-providers.ts";
 import { WakeLatch, WebSocketWakeSource, type NodeWakeSource } from "./wake.ts";
+
+const DEFAULT_MAX_CONCURRENCY = 6;
+const MAX_MAX_CONCURRENCY = 32;
 
 interface LocalAccess {
   roots: LocalRoot[];
@@ -60,6 +63,7 @@ export class NodeDaemon {
   private access: LocalAccess;
   private accessInitialized = false;
   private reloadQueue: Promise<boolean> = Promise.resolve(false);
+  private maxConcurrency = DEFAULT_MAX_CONCURRENCY;
 
   constructor(private readonly options: NodeDaemonOptions) {
     this.access = normalizeAccess({
@@ -190,17 +194,25 @@ export class NodeDaemon {
     });
   }
 
-  async runOnce(signal?: AbortSignal): Promise<boolean> {
-    const lifecycle = signal
-      ? AbortSignal.any([signal, this.shutdown.signal])
-      : this.shutdown.signal;
-    if (lifecycle.aborted) return false;
+  private async pollForDispatch(
+    activeTaskCount: number,
+    claim: boolean
+  ): Promise<NodeDispatch | undefined> {
     await this.reloadAccess();
-    const response = await this.api.poll(this.capability());
-    const dispatch = response.dispatch;
-    if (!dispatch) {
-      return false;
+    const response = await this.api.poll(this.capability(), { activeTaskCount, claim });
+    const configuredConcurrency = response.maxConcurrency;
+    if (
+      typeof configuredConcurrency === "number" &&
+      Number.isInteger(configuredConcurrency) &&
+      configuredConcurrency >= 1 &&
+      configuredConcurrency <= MAX_MAX_CONCURRENCY
+    ) {
+      this.maxConcurrency = configuredConcurrency;
     }
+    return response.dispatch ?? undefined;
+  }
+
+  private async executeDispatch(dispatch: NodeDispatch, lifecycle: AbortSignal): Promise<void> {
     const acknowledged = await this.api.acknowledge(dispatch.dispatchId, dispatch.leaseToken);
     let reloadFailed = false;
     try {
@@ -325,6 +337,16 @@ export class NodeDaemon {
       if (leaseTimer) clearTimeout(leaseTimer);
       lifecycle.removeEventListener("abort", onStop);
     }
+  }
+
+  async runOnce(signal?: AbortSignal): Promise<boolean> {
+    const lifecycle = signal
+      ? AbortSignal.any([signal, this.shutdown.signal])
+      : this.shutdown.signal;
+    if (lifecycle.aborted) return false;
+    const dispatch = await this.pollForDispatch(0, true);
+    if (!dispatch) return false;
+    await this.executeDispatch(dispatch, lifecycle);
     return true;
   }
 
@@ -345,13 +367,38 @@ export class NodeDaemon {
           })
         );
       });
+    const active = new Set<Promise<void>>();
+    const start = (dispatch: NodeDispatch) => {
+      const task = this.executeDispatch(dispatch, lifecycle).catch((error) => {
+        console.error(
+          JSON.stringify({
+            level: "error",
+            component: "adc-node",
+            message: "task execution failed",
+            dispatchId: dispatch.dispatchId,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        );
+      });
+      active.add(task);
+      void task.finally(() => {
+        active.delete(task);
+        wake.notify();
+      });
+    };
     let errorDelay = 1_000;
     try {
       while (!lifecycle.aborted) {
         try {
-          const handled = await this.runOnce(lifecycle);
+          const claim = active.size < this.maxConcurrency;
+          const dispatch = await this.pollForDispatch(active.size, claim);
           errorDelay = 1_000;
-          if (handled) continue;
+          if (dispatch) {
+            start(dispatch);
+            continue;
+          }
+          // A settings-only poll can raise the limit while all known slots are occupied.
+          if (!claim && active.size < this.maxConcurrency) continue;
           await this.waitForWork(wake, this.options.pollIntervalMs ?? 30_000, lifecycle);
         } catch (error) {
           console.error(
@@ -367,6 +414,7 @@ export class NodeDaemon {
       }
     } finally {
       await wakeTask;
+      await Promise.allSettled([...active]);
       await this.providers.close();
     }
   }

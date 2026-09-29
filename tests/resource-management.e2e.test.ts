@@ -158,7 +158,8 @@ describe("account resource management through HTTP and MCP", () => {
         rootAccess: "selected",
         rootIds: ["root_workspace"],
         readOnlyRootIds: ["root_workspace"],
-        allowExecution: false
+        allowExecution: false,
+        maxConcurrency: 3
       }
     };
     expect(
@@ -260,8 +261,24 @@ describe("account resource management through HTTP and MCP", () => {
       await mcp.close();
     }
     // Device presence does not overwrite owner controls.
-    await node.client.poll(node.capability);
+    await expect(node.client.poll(node.capability, { activeTaskCount: 3 })).resolves.toMatchObject({
+      dispatch: null,
+      maxConcurrency: 3
+    });
     expect((await store.getNode(node.nodeId))?.accessPolicy).toEqual(changes.accessPolicy);
+    expect(
+      (
+        await request(
+          `/api/v1/nodes/${node.nodeId}`,
+          {
+            ...changes,
+            revision: 2,
+            accessPolicy: { ...changes.accessPolicy, maxConcurrency: 33 }
+          },
+          "PATCH"
+        )
+      ).statusCode
+    ).toBe(400);
     expect(
       (
         await request(
@@ -534,6 +551,7 @@ it("keeps memory-store management behavior consistent with persistent storage", 
     });
     expect(changed.statusCode, changed.body).toBe(200);
     expect(changed.json().revision).toBe(2);
+    expect(changed.json().accessPolicy.maxConcurrency).toBe(6);
     const granted = (
       await app.inject({
         method: "POST",

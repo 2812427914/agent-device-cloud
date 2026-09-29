@@ -49,7 +49,7 @@ describe("NodeDaemon access reload", () => {
       stateDirectory: "/unused/state",
       mcpProviderManager: providers
     });
-    vi.spyOn(daemon.api, "poll").mockResolvedValue({});
+    vi.spyOn(daemon.api, "poll").mockResolvedValue({ dispatch: null });
 
     await daemon.runOnce();
     await daemon.runOnce();
@@ -68,7 +68,7 @@ describe("NodeDaemon access reload", () => {
       pollIntervalMs: 60_000,
       wakeSource
     });
-    const poll = vi.spyOn(daemon.api, "poll").mockResolvedValue({});
+    const poll = vi.spyOn(daemon.api, "poll").mockResolvedValue({ dispatch: null });
     const controller = new AbortController();
     const running = daemon.run(controller.signal);
 
@@ -92,7 +92,7 @@ describe("NodeDaemon access reload", () => {
       loadAccess: async () => ({ roots, accessMode: "selected" }),
       wakeSource: new TestWakeSource()
     });
-    const poll = vi.spyOn(daemon.api, "poll").mockResolvedValue({});
+    const poll = vi.spyOn(daemon.api, "poll").mockResolvedValue({ dispatch: null });
     const controller = new AbortController();
     const running = daemon.run(controller.signal);
 
@@ -116,7 +116,7 @@ describe("NodeDaemon access reload", () => {
       stateDirectory: "/unused/state",
       loadAccess: async () => ({ roots, accessMode: "selected" })
     });
-    const poll = vi.spyOn(daemon.api, "poll").mockResolvedValue({});
+    const poll = vi.spyOn(daemon.api, "poll").mockResolvedValue({ dispatch: null });
     await daemon.runOnce();
     expect(poll.mock.calls[0]?.[0].roots).toEqual([
       { rootId: root.rootId, path: "/workspace", writable: true, label: "Work" }
@@ -202,5 +202,112 @@ describe("NodeDaemon access reload", () => {
         result: expect.objectContaining({ status: "cancelled" })
       })
     );
+  });
+
+  it("runs six tasks by default and applies concurrency changes without cancelling work", async () => {
+    const wakeSource = new TestWakeSource();
+    const daemon = new NodeDaemon({
+      controlPlaneUrl: "http://localhost:8787",
+      nodeId: "node_example",
+      privateKey: generateNodeKeyPair().privateKey,
+      roots: [root],
+      stateDirectory: "/unused/state",
+      pollIntervalMs: 60_000,
+      wakeSource
+    });
+    const dispatches = Array.from({ length: 10 }, (_, index) => ({
+      dispatchId: `dsp_${index}`,
+      leaseToken: `lease_${index}`,
+      policyDecision: allowed,
+      invocation: buildInvocation({
+        context: {
+          accountId: "acct_example",
+          actorId: "actor_example",
+          grantId: "grant_example",
+          nodeIds: ["node_example"],
+          resourcesByNode: {
+            node_example: [{ rootId: root.rootId, path: root.path }]
+          },
+          rootIds: [root.rootId]
+        },
+        tool: "file.read",
+        args: { rootId: root.rootId, path: `${index}.txt` },
+        idempotencyKey: `daemon-concurrency-${index}`,
+        source: "sdk"
+      })
+    }));
+    let configuredConcurrency = 6;
+    let nextDispatch = 0;
+    const poll = vi
+      .spyOn(daemon.api, "poll")
+      .mockImplementation(async (_capability, state = {}) => {
+        const activeTaskCount = state.activeTaskCount ?? 0;
+        if (state.claim === false || activeTaskCount >= configuredConcurrency) {
+          return { dispatch: null, maxConcurrency: configuredConcurrency };
+        }
+        return {
+          dispatch: dispatches[nextDispatch++] ?? null,
+          maxConcurrency: configuredConcurrency
+        };
+      });
+    vi.spyOn(daemon.api, "acknowledge").mockResolvedValue({
+      leaseExpiresAt: new Date(Date.now() + 60_000).toISOString()
+    });
+    vi.spyOn(daemon.api, "complete").mockResolvedValue({});
+
+    let activeTasks = 0;
+    let maximumActiveTasks = 0;
+    const started: string[] = [];
+    const finish = new Map<string, () => void>();
+    vi.spyOn(daemon.runtime, "execute").mockImplementation(
+      async (invocation, _decision, signal) => {
+        activeTasks++;
+        maximumActiveTasks = Math.max(maximumActiveTasks, activeTasks);
+        started.push(invocation.invocationId);
+        await new Promise<void>((resolve) => {
+          const done = () => resolve();
+          finish.set(invocation.invocationId, done);
+          if (signal?.aborted) done();
+          else signal?.addEventListener("abort", done, { once: true });
+        });
+        activeTasks--;
+        return {
+          schemaVersion: "0.1",
+          invocationId: invocation.invocationId,
+          attemptId: invocation.attemptId,
+          status: "succeeded"
+        };
+      }
+    );
+
+    const controller = new AbortController();
+    const running = daemon.run(controller.signal);
+    await vi.waitFor(() => expect(started).toHaveLength(6));
+    expect(activeTasks).toBe(6);
+    expect(maximumActiveTasks).toBe(6);
+
+    configuredConcurrency = 2;
+    wakeSource.wake();
+    await vi.waitFor(() =>
+      expect(
+        poll.mock.calls.some(([, state]) => state?.activeTaskCount === 6 && state.claim === false)
+      ).toBe(true)
+    );
+    for (const invocationId of started.slice(0, 4)) finish.get(invocationId)?.();
+    await vi.waitFor(() => expect(activeTasks).toBe(2));
+    expect(started).toHaveLength(6);
+
+    finish.get(started[4]!)?.();
+    await vi.waitFor(() => expect(started).toHaveLength(7));
+    expect(activeTasks).toBe(2);
+
+    configuredConcurrency = 4;
+    wakeSource.wake();
+    await vi.waitFor(() => expect(started).toHaveLength(9));
+    expect(activeTasks).toBe(4);
+    expect(maximumActiveTasks).toBe(6);
+
+    controller.abort();
+    await running;
   });
 });

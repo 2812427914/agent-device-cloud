@@ -35,8 +35,11 @@ import {
 } from "./access.ts";
 import { registerAccountRoutes } from "./account-routes.ts";
 import {
+  defaultNodeAccessPolicy,
   effectiveCapability,
   GrantSettingsSchema,
+  MAX_NODE_MAX_CONCURRENCY,
+  nodeMaxConcurrency,
   registerResourceManagement,
   validateGrantResources
 } from "./resource-management.ts";
@@ -456,7 +459,8 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
     requireOwner,
     accountOf,
     now,
-    disconnectNode: (nodeId) => wakeHub.disconnect(nodeId, "device removed")
+    disconnectNode: (nodeId) => wakeHub.disconnect(nodeId, "device removed"),
+    wakeNode
   });
   registerAccountRoutes(app, {
     access: options.access,
@@ -514,6 +518,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
         publicKey: body.publicKey,
         platform: body.platform,
         status: "active",
+        accessPolicy: defaultNodeAccessPolicy(),
         createdAt: now().toISOString()
       }
     });
@@ -531,6 +536,11 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
   app.get("/api/v1/nodes", { preHandler: requireOwner }, async (request) => ({
     nodes: (await options.store.listNodes(accountOf(request))).map((node) => ({
       ...node,
+      accessPolicy: {
+        ...defaultNodeAccessPolicy(),
+        ...node.accessPolicy,
+        maxConcurrency: nodeMaxConcurrency(node)
+      },
       effectiveCapability: effectiveCapability(node),
       online:
         node.status === "active" &&
@@ -722,7 +732,14 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
 
   app.post("/api/v1/nodes/:nodeId/poll", { preHandler: requireNode }, async (request, reply) => {
     const { nodeId } = z.object({ nodeId: z.string() }).parse(request.params);
-    const body = z.object({ capability: CapabilitySchema }).strict().parse(request.body);
+    const body = z
+      .object({
+        capability: CapabilitySchema,
+        activeTaskCount: z.number().int().min(0).max(MAX_NODE_MAX_CONCURRENCY).default(0),
+        claim: z.boolean().default(true)
+      })
+      .strict()
+      .parse(request.body);
     if (body.capability.nodeId !== nodeId) {
       return apiError(reply, 400, ErrorCodes.INVALID_REQUEST, "capability nodeId mismatch");
     }
@@ -730,7 +747,14 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       pollCounter.inc({ outcome: "denied" });
       return apiError(reply, 401, ErrorCodes.DENIED, "device is revoked");
     }
-    let dispatch = await options.store.claim(nodeId, now(), leaseMs);
+    const node = await options.store.getNode(nodeId);
+    const maxConcurrency = node
+      ? nodeMaxConcurrency(node)
+      : defaultNodeAccessPolicy().maxConcurrency;
+    let dispatch =
+      body.claim && body.activeTaskCount < maxConcurrency
+        ? await options.store.claim(nodeId, now(), leaseMs)
+        : undefined;
     // Re-evaluate queued work after policy changes. A bounded loop avoids one
     // revoked grant indefinitely blocking unrelated work on the same device.
     for (let checked = 0; dispatch && !(await dispatchAuthorized(dispatch)); checked++) {
@@ -746,7 +770,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       dispatch = await options.store.claim(nodeId, now(), leaseMs);
     }
     pollCounter.inc({ outcome: dispatch ? "dispatched" : "idle" });
-    return { dispatch: dispatch ?? null };
+    return { dispatch: dispatch ?? null, maxConcurrency };
   });
 
   app.post("/api/v1/nodes/:nodeId/ack", { preHandler: requireNode }, async (request, reply) => {

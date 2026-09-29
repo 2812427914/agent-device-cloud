@@ -40,6 +40,7 @@ export interface NodeAccessPolicy {
   rootIds: string[];
   readOnlyRootIds: string[];
   allowExecution: boolean;
+  maxConcurrency: number;
 }
 
 export interface ProjectRecord {

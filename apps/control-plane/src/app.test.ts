@@ -176,9 +176,13 @@ describe("control plane", () => {
     const queued = await owner.invoke(invocation);
     expect(queued.status).toBe("queued");
 
+    await expect(node.poll(capability, { activeTaskCount: 6 })).resolves.toEqual({
+      dispatch: null,
+      maxConcurrency: 6
+    });
     const polled = await node.poll(capability);
-    expect(polled.dispatch.invocation.invocationId).toBe(invocation.invocationId);
-    await node.acknowledge(polled.dispatch.dispatchId, polled.dispatch.leaseToken);
+    expect(polled.dispatch!.invocation.invocationId).toBe(invocation.invocationId);
+    await node.acknowledge(polled.dispatch!.dispatchId, polled.dispatch!.leaseToken);
     const result = ResultSchema.parse({
       schemaVersion: "0.1",
       invocationId: invocation.invocationId,
@@ -187,8 +191,8 @@ describe("control plane", () => {
       output: { content: "ok" }
     });
     await node.complete({
-      dispatchId: polled.dispatch.dispatchId,
-      leaseToken: polled.dispatch.leaseToken,
+      dispatchId: polled.dispatch!.dispatchId,
+      leaseToken: polled.dispatch!.leaseToken,
       result
     });
     await expect(owner.taskStatus(queued.jobId!)).resolves.toMatchObject({
@@ -358,7 +362,7 @@ describe("control plane", () => {
       rotatedKeys.privateKey,
       fetcher
     );
-    await expect(rotatedNode.poll(capability)).resolves.toEqual({ dispatch: null });
+    await expect(rotatedNode.poll(capability)).resolves.toMatchObject({ dispatch: null });
 
     expect(
       (await ownerRequest(app, "POST", `/api/v1/nodes/${paired.nodeId}/revoke`, {})).statusCode
@@ -498,7 +502,7 @@ describe("control plane", () => {
         ]
       })
     );
-    expect(dispatched.dispatch.policyDecision).toMatchObject({
+    expect(dispatched.dispatch!.policyDecision).toMatchObject({
       outcome: "allow",
       reasonCode: "approval.granted"
     });

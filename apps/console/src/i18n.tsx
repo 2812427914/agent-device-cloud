@@ -26,6 +26,7 @@ export const zh = {
     "这些限制对使用此设备的所有 Agent 生效。实际权限始终以设备本地开放范围为上限。",
   "Include all current and future exposed folders": "包含设备当前及以后开放的全部目录",
   "Allow commands and tests": "允许执行命令和测试",
+  "Concurrent task limit": "并发任务上限",
   "Affected agents": "使用此设备的 Agent",
   "Manage agent access": "管理 Agent 授权",
   "New calls use saved limits immediately. Running tasks are checked again on their next lease renewal.":
