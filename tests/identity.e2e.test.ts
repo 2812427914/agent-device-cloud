@@ -281,6 +281,26 @@ describe("persistent account identity and authorization", () => {
     expect(credentialResponse.statusCode, credentialResponse.body).toBe(200);
     const { token, credential } = credentialResponse.json();
     const agentHeaders = { authorization: `Bearer ${token}` };
+    expect((await request("/api/v1/overview", undefined, ownerHeaders)).json()).toMatchObject({
+      counts: {
+        connectedDevices: 1,
+        onlineNow: 1,
+        activeAgents: 1,
+        pendingApprovals: 0,
+        clientConnections: 1
+      }
+    });
+    expect(
+      (await request("/api/v1/overview", undefined, { cookie: bob.cookie })).json()
+    ).toMatchObject({
+      counts: {
+        connectedDevices: 0,
+        onlineNow: 0,
+        activeAgents: 0,
+        pendingApprovals: 0,
+        clientConnections: 0
+      }
+    });
     const me = await request("/api/v1/me", undefined, agentHeaders);
     expect(me.json().context.grantId).toBe(grant.grantId);
     for (const route of [
@@ -316,6 +336,9 @@ describe("persistent account identity and authorization", () => {
       (await request(`/api/v1/grants/${grant.grantId}/revoke`, {}, ownerHeaders)).statusCode
     ).toBe(200);
     expect((await request("/api/v1/me", undefined, agentHeaders)).statusCode).toBe(401);
+    expect((await request("/api/v1/overview", undefined, ownerHeaders)).json()).toMatchObject({
+      counts: { activeAgents: 0, clientConnections: 0 }
+    });
     expect((await poll()).json().dispatch).toBeNull();
     const persisted = await store.pool.query(
       "SELECT token_hash FROM adc_credentials WHERE credential_id = $1",

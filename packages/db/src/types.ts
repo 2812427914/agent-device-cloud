@@ -111,6 +111,23 @@ export interface AuditEvent {
   createdAt: string;
 }
 
+export interface PageCursor {
+  createdAt: string;
+  itemId: string;
+}
+
+export interface AuditPageOptions {
+  limit: number;
+  before?: PageCursor;
+  invocationId?: string;
+  eventTypePrefix?: string;
+}
+
+export interface AuditPage {
+  events: AuditEvent[];
+  nextCursor?: PageCursor;
+}
+
 export interface ArtifactRecord {
   artifactId: string;
   accountId: string;
@@ -135,6 +152,26 @@ export interface ApprovalRecord {
   resolvedAt?: string;
 }
 
+export interface ApprovalPageOptions {
+  limit: number;
+  before?: PageCursor;
+  status?: "pending" | "resolved";
+  now: string;
+}
+
+export interface ApprovalPage {
+  approvals: ApprovalRecord[];
+  nextCursor?: PageCursor;
+  pendingCount: number;
+}
+
+export interface AccountResourceSummary {
+  activeNodes: number;
+  onlineNodes: number;
+  activeGrants: number;
+  pendingApprovals: number;
+}
+
 export interface PairNodeInput {
   codeHash: string;
   node: Omit<NodeRecord, "accountId"> & { accountId?: string };
@@ -155,6 +192,7 @@ export interface Store {
   pairNode(input: PairNodeInput): Promise<PairNodeResult | undefined>;
   getNode(nodeId: string): Promise<NodeRecord | undefined>;
   listNodes(accountId: string): Promise<NodeRecord[]>;
+  listNodesByIds(accountId: string, nodeIds: string[]): Promise<NodeRecord[]>;
   updateNodePresence(
     nodeId: string,
     capability: CapabilityAdvertisement,
@@ -176,6 +214,7 @@ export interface Store {
   listProjects(accountId: string): Promise<ProjectRecord[]>;
   putRoot(root: RootBindingRecord): Promise<void>;
   listRoots(projectId: string): Promise<RootBindingRecord[]>;
+  listRootsForAccount(accountId: string): Promise<RootBindingRecord[]>;
   putGrant(grant: AgentGrantRecord, createOnly?: boolean): Promise<void>;
   updateGrant(
     grant: AgentGrantRecord,
@@ -195,6 +234,7 @@ export interface Store {
   getApproval(approvalId: string): Promise<ApprovalRecord | undefined>;
   getApprovalByInvocation(invocationId: string): Promise<ApprovalRecord | undefined>;
   listApprovals(accountId: string): Promise<ApprovalRecord[]>;
+  listApprovalsPage(accountId: string, options: ApprovalPageOptions): Promise<ApprovalPage>;
   resolveApproval(
     approvalId: string,
     decision: "approved" | "denied",
@@ -229,7 +269,17 @@ export interface Store {
   requestCancel(dispatchId: string, now: Date): Promise<DispatchRecord | undefined>;
   getDispatchById(dispatchId: string): Promise<DispatchRecord | undefined>;
   getDispatchByInvocation(invocationId: string): Promise<DispatchRecord | undefined>;
+  listDispatchesByInvocationIds(
+    accountId: string,
+    invocationIds: string[]
+  ): Promise<DispatchRecord[]>;
   listAudit(accountId: string, invocationId?: string): Promise<AuditEvent[]>;
+  listAuditPage(accountId: string, options: AuditPageOptions): Promise<AuditPage>;
+  getAccountResourceSummary(
+    accountId: string,
+    onlineAfter: string,
+    now: string
+  ): Promise<AccountResourceSummary>;
   putAudit(event: AuditEvent): Promise<void>;
   putArtifact(artifact: ArtifactRecord): Promise<void>;
   getArtifact(artifactId: string): Promise<ArtifactRecord | undefined>;

@@ -13,10 +13,15 @@ import {
   type Receipt
 } from "@adc/protocol";
 import type {
+  AccountResourceSummary,
   AccountRecord,
   AgentGrantRecord,
+  ApprovalPage,
+  ApprovalPageOptions,
   ApprovalRecord,
   ArtifactRecord,
+  AuditPage,
+  AuditPageOptions,
   AuditEvent,
   DispatchRecord,
   NodeRecord,
@@ -89,6 +94,26 @@ function approvalFromRow(row: QueryResultRow): ApprovalRecord {
     createdAt: iso(row.created_at),
     expiresAt: iso(row.expires_at),
     ...(row.resolved_at ? { resolvedAt: iso(row.resolved_at) } : {})
+  };
+}
+
+function grantFromRow(row: QueryResultRow): AgentGrantRecord {
+  return {
+    grantId: row.grant_id,
+    accountId: row.account_id,
+    name: row.name,
+    ...(row.project_id ? { projectId: row.project_id } : {}),
+    actorId: row.actor_id,
+    profile: row.profile,
+    nodeIds: row.node_ids,
+    rootIds: row.root_ids,
+    rootAccess: row.root_access,
+    ...(row.approval_policy ? { approvalPolicy: row.approval_policy } : {}),
+    allowedTools: row.allowed_tools,
+    ...(row.revoked_at ? { revokedAt: iso(row.revoked_at) } : {}),
+    ...(row.deleted_at ? { deletedAt: iso(row.deleted_at) } : {}),
+    revision: row.revision,
+    createdAt: iso(row.created_at)
   };
 }
 
@@ -249,6 +274,15 @@ export class PostgresStore implements Store {
     const result = await this.pool.query(
       "SELECT * FROM adc_nodes WHERE account_id = $1 AND deleted_at IS NULL ORDER BY created_at",
       [accountId]
+    );
+    return result.rows.map(nodeFromRow);
+  }
+
+  async listNodesByIds(accountId: string, nodeIds: string[]): Promise<NodeRecord[]> {
+    if (!nodeIds.length) return [];
+    const result = await this.pool.query(
+      "SELECT * FROM adc_nodes WHERE account_id = $1 AND node_id = ANY($2::text[])",
+      [accountId, nodeIds]
     );
     return result.rows.map(nodeFromRow);
   }
@@ -431,6 +465,24 @@ export class PostgresStore implements Store {
     }));
   }
 
+  async listRootsForAccount(accountId: string): Promise<RootBindingRecord[]> {
+    const result = await this.pool.query(
+      `SELECT r.* FROM adc_roots r
+       JOIN adc_projects p ON p.project_id = r.project_id
+       WHERE p.account_id = $1
+       ORDER BY r.created_at`,
+      [accountId]
+    );
+    return result.rows.map((row) => ({
+      rootId: row.root_id,
+      projectId: row.project_id,
+      nodeId: row.node_id,
+      label: row.label,
+      writable: row.writable,
+      createdAt: iso(row.created_at)
+    }));
+  }
+
   async putGrant(grant: AgentGrantRecord, createOnly = false): Promise<void> {
     const result = await this.pool.query(
       `INSERT INTO adc_agent_grants
@@ -476,39 +528,17 @@ export class PostgresStore implements Store {
     const result = await this.pool.query("SELECT * FROM adc_agent_grants WHERE grant_id = $1", [
       grantId
     ]);
-    const row = result.rows[0];
-    return row
-      ? {
-          grantId: row.grant_id,
-          accountId: row.account_id,
-          name: row.name,
-          ...(row.project_id ? { projectId: row.project_id } : {}),
-          actorId: row.actor_id,
-          profile: row.profile,
-          nodeIds: row.node_ids,
-          rootIds: row.root_ids,
-          rootAccess: row.root_access,
-          ...(row.approval_policy ? { approvalPolicy: row.approval_policy } : {}),
-          allowedTools: row.allowed_tools,
-          ...(row.revoked_at ? { revokedAt: iso(row.revoked_at) } : {}),
-          ...(row.deleted_at ? { deletedAt: iso(row.deleted_at) } : {}),
-          revision: row.revision,
-          createdAt: iso(row.created_at)
-        }
-      : undefined;
+    return result.rows[0] ? grantFromRow(result.rows[0]) : undefined;
   }
 
   async listGrants(accountId: string): Promise<AgentGrantRecord[]> {
-    const result = await this.pool.query<{ grant_id: string }>(
-      "SELECT grant_id FROM adc_agent_grants WHERE account_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC",
+    const result = await this.pool.query(
+      `SELECT * FROM adc_agent_grants
+       WHERE account_id = $1 AND deleted_at IS NULL
+       ORDER BY created_at DESC`,
       [accountId]
     );
-    const grants: AgentGrantRecord[] = [];
-    for (const row of result.rows) {
-      const grant = await this.getGrant(row.grant_id);
-      if (grant) grants.push(grant);
-    }
-    return grants;
+    return result.rows.map(grantFromRow);
   }
 
   async revokeGrant(accountId: string, grantId: string, now: Date): Promise<boolean> {
@@ -620,6 +650,57 @@ export class PostgresStore implements Store {
       [accountId]
     );
     return result.rows.map(approvalFromRow);
+  }
+
+  async listApprovalsPage(accountId: string, options: ApprovalPageOptions): Promise<ApprovalPage> {
+    const values: unknown[] = [accountId];
+    const conditions = ["account_id = $1"];
+    if (options.status === "pending") {
+      values.push(options.now);
+      conditions.push(`status = 'pending' AND expires_at > $${values.length}::timestamptz`);
+    } else if (options.status === "resolved") {
+      values.push(options.now);
+      conditions.push(`NOT (status = 'pending' AND expires_at > $${values.length}::timestamptz)`);
+    }
+    if (options.before) {
+      values.push(options.before.createdAt, options.before.itemId);
+      conditions.push(
+        `(created_at, approval_id) < ($${values.length - 1}::timestamptz, $${values.length})`
+      );
+    }
+    values.push(options.limit + 1);
+    const [result, count] = await Promise.all([
+      this.pool.query(
+        `SELECT * FROM adc_approvals
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY created_at DESC, approval_id DESC
+         LIMIT $${values.length}`,
+        values
+      ),
+      this.pool.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM adc_approvals
+         WHERE account_id = $1 AND status = 'pending' AND expires_at > $2::timestamptz`,
+        [accountId, options.now]
+      )
+    ]);
+    const page = result.rows.slice(0, options.limit).map((row) => {
+      const approval = approvalFromRow(row);
+      return approval.status === "pending" && approval.expiresAt <= options.now
+        ? ({ ...approval, status: "expired" } satisfies ApprovalRecord)
+        : approval;
+    });
+    return {
+      approvals: page,
+      pendingCount: Number(count.rows[0]?.count ?? 0),
+      ...(result.rows.length > options.limit && page.length
+        ? {
+            nextCursor: {
+              createdAt: page.at(-1)!.createdAt,
+              itemId: page.at(-1)!.approvalId
+            }
+          }
+        : {})
+    };
   }
 
   async resolveApproval(
@@ -831,6 +912,19 @@ export class PostgresStore implements Store {
     return result.rows[0] ? dispatchFromRow(result.rows[0]) : undefined;
   }
 
+  async listDispatchesByInvocationIds(
+    accountId: string,
+    invocationIds: string[]
+  ): Promise<DispatchRecord[]> {
+    if (!invocationIds.length) return [];
+    const result = await this.pool.query(
+      `SELECT * FROM adc_dispatches
+       WHERE account_id = $1 AND invocation_id = ANY($2::text[])`,
+      [accountId, invocationIds]
+    );
+    return result.rows.map(dispatchFromRow);
+  }
+
   async listAudit(accountId: string, invocationId?: string): Promise<AuditEvent[]> {
     const result = invocationId
       ? await this.pool.query(
@@ -843,6 +937,80 @@ export class PostgresStore implements Store {
           [accountId]
         );
     return result.rows.map(auditFromRow);
+  }
+
+  async listAuditPage(accountId: string, options: AuditPageOptions): Promise<AuditPage> {
+    const values: unknown[] = [accountId];
+    const conditions = ["account_id = $1"];
+    if (options.invocationId) {
+      values.push(options.invocationId);
+      conditions.push(`invocation_id = $${values.length}`);
+    }
+    if (options.eventTypePrefix) {
+      values.push(options.eventTypePrefix);
+      conditions.push(`split_part(event_type, '.', 1) = $${values.length}`);
+    }
+    if (options.before) {
+      values.push(options.before.createdAt, options.before.itemId);
+      conditions.push(
+        `(created_at, event_id) < ($${values.length - 1}::timestamptz, $${values.length})`
+      );
+    }
+    values.push(options.limit + 1);
+    const result = await this.pool.query(
+      `SELECT * FROM adc_audit_events
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY created_at DESC, event_id DESC
+       LIMIT $${values.length}`,
+      values
+    );
+    const events = result.rows.slice(0, options.limit).map(auditFromRow);
+    return {
+      events,
+      ...(result.rows.length > options.limit && events.length
+        ? {
+            nextCursor: {
+              createdAt: events.at(-1)!.createdAt,
+              itemId: events.at(-1)!.eventId
+            }
+          }
+        : {})
+    };
+  }
+
+  async getAccountResourceSummary(
+    accountId: string,
+    onlineAfter: string,
+    now: string
+  ): Promise<AccountResourceSummary> {
+    const result = await this.pool.query<{
+      active_nodes: string;
+      online_nodes: string;
+      active_grants: string;
+      pending_approvals: string;
+    }>(
+      `SELECT
+         (SELECT COUNT(*) FROM adc_nodes
+          WHERE account_id = $1 AND deleted_at IS NULL AND status = 'active')::text
+           AS active_nodes,
+         (SELECT COUNT(*) FROM adc_nodes
+          WHERE account_id = $1 AND deleted_at IS NULL AND status = 'active'
+            AND last_seen_at >= $2::timestamptz)::text AS online_nodes,
+         (SELECT COUNT(*) FROM adc_agent_grants
+          WHERE account_id = $1 AND deleted_at IS NULL AND revoked_at IS NULL)::text
+           AS active_grants,
+         (SELECT COUNT(*) FROM adc_approvals
+          WHERE account_id = $1 AND status = 'pending'
+            AND expires_at > $3::timestamptz)::text AS pending_approvals`,
+      [accountId, onlineAfter, now]
+    );
+    const row = result.rows[0]!;
+    return {
+      activeNodes: Number(row.active_nodes),
+      onlineNodes: Number(row.online_nodes),
+      activeGrants: Number(row.active_grants),
+      pendingApprovals: Number(row.pending_approvals)
+    };
   }
 
   async putAudit(event: AuditEvent): Promise<void> {

@@ -9,10 +9,15 @@ import {
   type Receipt
 } from "@adc/protocol";
 import type {
+  AccountResourceSummary,
   AccountRecord,
   AgentGrantRecord,
+  ApprovalPage,
+  ApprovalPageOptions,
   ApprovalRecord,
   ArtifactRecord,
+  AuditPage,
+  AuditPageOptions,
   AuditEvent,
   DispatchRecord,
   NodeRecord,
@@ -29,6 +34,25 @@ const terminalStatuses = new Set(["succeeded", "failed", "denied", "cancelled", 
 
 function clone<T>(value: T): T {
   return structuredClone(value);
+}
+
+function newestFirst(
+  left: { createdAt: string },
+  leftId: string,
+  right: { createdAt: string },
+  rightId: string
+): number {
+  return Date.parse(right.createdAt) - Date.parse(left.createdAt) || rightId.localeCompare(leftId);
+}
+
+function isBefore(
+  item: { createdAt: string },
+  itemId: string,
+  cursor: { createdAt: string; itemId: string }
+): boolean {
+  const itemTime = Date.parse(item.createdAt);
+  const cursorTime = Date.parse(cursor.createdAt);
+  return itemTime < cursorTime || (itemTime === cursorTime && itemId < cursor.itemId);
 }
 
 export class MemoryStore implements Store {
@@ -108,6 +132,13 @@ export class MemoryStore implements Store {
   async listNodes(accountId: string): Promise<NodeRecord[]> {
     return [...this.nodes.values()]
       .filter((node) => node.accountId === accountId && !node.deletedAt)
+      .map((node) => clone(node));
+  }
+
+  async listNodesByIds(accountId: string, nodeIds: string[]): Promise<NodeRecord[]> {
+    const selected = new Set(nodeIds);
+    return [...this.nodes.values()]
+      .filter((node) => node.accountId === accountId && selected.has(node.nodeId))
       .map((node) => clone(node));
   }
 
@@ -248,6 +279,17 @@ export class MemoryStore implements Store {
       .map((root) => clone(root));
   }
 
+  async listRootsForAccount(accountId: string): Promise<RootBindingRecord[]> {
+    const projectIds = new Set(
+      [...this.projects.values()]
+        .filter((project) => project.accountId === accountId)
+        .map((project) => project.projectId)
+    );
+    return [...this.roots.values()]
+      .filter((root) => projectIds.has(root.projectId))
+      .map((root) => clone(root));
+  }
+
   async putGrant(grant: AgentGrantRecord, createOnly = false): Promise<void> {
     const existing = this.grants.get(grant.grantId);
     if (
@@ -373,6 +415,43 @@ export class MemoryStore implements Store {
       .filter((approval) => approval.accountId === accountId)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .map((approval) => clone(approval));
+  }
+
+  async listApprovalsPage(accountId: string, options: ApprovalPageOptions): Promise<ApprovalPage> {
+    const now = Date.parse(options.now);
+    const effective = [...this.approvals.values()]
+      .filter((approval) => approval.accountId === accountId)
+      .map((approval) =>
+        approval.status === "pending" && Date.parse(approval.expiresAt) <= now
+          ? ({ ...approval, status: "expired" } satisfies ApprovalRecord)
+          : approval
+      );
+    const pendingCount = effective.filter((approval) => approval.status === "pending").length;
+    const filtered = effective
+      .filter(
+        (approval) =>
+          !options.status ||
+          (options.status === "pending"
+            ? approval.status === "pending"
+            : approval.status !== "pending")
+      )
+      .filter(
+        (approval) => !options.before || isBefore(approval, approval.approvalId, options.before)
+      )
+      .sort((left, right) => newestFirst(left, left.approvalId, right, right.approvalId));
+    const approvals = filtered.slice(0, options.limit);
+    return {
+      approvals: approvals.map((approval) => clone(approval)),
+      pendingCount,
+      ...(filtered.length > options.limit && approvals.length
+        ? {
+            nextCursor: {
+              createdAt: approvals.at(-1)!.createdAt,
+              itemId: approvals.at(-1)!.approvalId
+            }
+          }
+        : {})
+    };
   }
 
   async resolveApproval(
@@ -592,6 +671,20 @@ export class MemoryStore implements Store {
     return id ? clone(this.dispatches.get(id)!) : undefined;
   }
 
+  async listDispatchesByInvocationIds(
+    accountId: string,
+    invocationIds: string[]
+  ): Promise<DispatchRecord[]> {
+    const selected = new Set(invocationIds);
+    return [...this.dispatches.values()]
+      .filter(
+        (dispatch) =>
+          dispatch.invocation.accountId === accountId &&
+          selected.has(dispatch.invocation.invocationId)
+      )
+      .map((dispatch) => clone(dispatch));
+  }
+
   async listAudit(accountId: string, invocationId?: string): Promise<AuditEvent[]> {
     return this.audit
       .filter(
@@ -600,6 +693,55 @@ export class MemoryStore implements Store {
           (invocationId === undefined || event.invocationId === invocationId)
       )
       .map((event) => clone(event));
+  }
+
+  async listAuditPage(accountId: string, options: AuditPageOptions): Promise<AuditPage> {
+    const filtered = this.audit
+      .filter(
+        (event) =>
+          event.accountId === accountId &&
+          (options.invocationId === undefined || event.invocationId === options.invocationId) &&
+          (options.eventTypePrefix === undefined ||
+            event.type.startsWith(`${options.eventTypePrefix}.`)) &&
+          (!options.before || isBefore(event, event.eventId, options.before))
+      )
+      .sort((left, right) => newestFirst(left, left.eventId, right, right.eventId));
+    const events = filtered.slice(0, options.limit);
+    return {
+      events: events.map((event) => clone(event)),
+      ...(filtered.length > options.limit && events.length
+        ? {
+            nextCursor: {
+              createdAt: events.at(-1)!.createdAt,
+              itemId: events.at(-1)!.eventId
+            }
+          }
+        : {})
+    };
+  }
+
+  async getAccountResourceSummary(
+    accountId: string,
+    onlineAfter: string,
+    now: string
+  ): Promise<AccountResourceSummary> {
+    const activeNodes = [...this.nodes.values()].filter(
+      (node) => node.accountId === accountId && !node.deletedAt && node.status === "active"
+    );
+    return {
+      activeNodes: activeNodes.length,
+      onlineNodes: activeNodes.filter((node) => !!node.lastSeenAt && node.lastSeenAt >= onlineAfter)
+        .length,
+      activeGrants: [...this.grants.values()].filter(
+        (grant) => grant.accountId === accountId && !grant.deletedAt && !grant.revokedAt
+      ).length,
+      pendingApprovals: [...this.approvals.values()].filter(
+        (approval) =>
+          approval.accountId === accountId &&
+          approval.status === "pending" &&
+          approval.expiresAt > now
+      ).length
+    };
   }
 
   async putAudit(event: AuditEvent): Promise<void> {

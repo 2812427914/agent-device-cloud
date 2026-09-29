@@ -1095,6 +1095,18 @@ function ApiReference() {
       copy("List paired devices and effective capabilities.", "列出已配对设备与有效能力。")
     ],
     [
+      "GET",
+      "/api/v1/overview",
+      copy("Owner", "账号用户"),
+      copy("Read bounded console counts and recent activity.", "读取有界的控制台统计与近期活动。")
+    ],
+    [
+      "GET",
+      "/api/v1/projects?include=roots",
+      copy("Owner", "账号用户"),
+      copy("List projects and their roots in one request.", "在一次请求中列出项目及其目录。")
+    ],
+    [
       "POST",
       "/api/v1/pairing-codes",
       copy("Owner", "账号用户"),
@@ -1141,9 +1153,18 @@ function ApiReference() {
     ],
     [
       "GET",
+      "/api/v1/approvals",
+      copy("Owner", "账号用户"),
+      copy(
+        "Page pending or resolved approvals with a cursor.",
+        "使用游标分页读取待处理或已处理审批。"
+      )
+    ],
+    [
+      "GET",
       "/api/v1/audit",
       copy("Owner", "账号用户"),
-      copy("Read account-scoped activity records.", "读取账号范围内的活动记录。")
+      copy("Page and filter account-scoped activity records.", "分页并筛选账号范围内的活动记录。")
     ]
   ];
   const errors = [
@@ -1245,6 +1266,12 @@ function ApiReference() {
           {copy(
             "The browser console and official clients use the same versioned API. The table highlights stable integration points; management clients should prefer the typed client rather than reconstructing response types.",
             "浏览器控制台和官方客户端使用相同的版本化 API。下表列出稳定接入点；管理端集成应优先使用类型化客户端，不应自行推测响应结构。"
+          )}
+        </p>
+        <p>
+          {copy(
+            "Approvals and audit use newest-first cursor pagination. Pass limit (1–100) and the returned nextCursor as cursor; approvals accepts status=pending|resolved, while audit accepts category=dispatch|approval|task|node|grant|credential|oauth or an exact invocationId.",
+            "审批与活动记录使用按时间倒序的游标分页。传入 limit（1–100），并将返回的 nextCursor 作为下一页 cursor；审批支持 status=pending|resolved，活动记录支持 category=dispatch|approval|task|node|grant|credential|oauth 或精确的 invocationId。"
           )}
         </p>
         <div className="table-wrap docs-table docs-api-table">

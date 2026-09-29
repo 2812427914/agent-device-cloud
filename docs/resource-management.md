@@ -78,12 +78,21 @@ paths. Public tool calls use `target.nodeId` plus an absolute `path` or `cwd`; l
 continue sending `rootId` plus a relative path. The create route no longer overwrites an existing
 grant ID.
 
+High-growth console reads are bounded. `GET /api/v1/overview` returns aggregate resource counts and
+five recent audit events. `GET /api/v1/projects?include=roots` returns projects and roots without
+per-project requests. `GET /api/v1/approvals` and `GET /api/v1/audit` use newest-first keyset
+pagination with a default limit of 50 and a maximum of 100. Clients pass `nextCursor` back as
+`cursor`; approvals support `status=pending|resolved`, while audit supports category and exact
+invocation filters. The typed client exposes `listApprovalsPage()` and `auditPage()`.
+
 Migration `0005_resource_management.sql` adds policies, revisions and deletion timestamps, replacing
 device-name uniqueness with a partial index over non-deleted devices. Existing policies default to
 the previous unrestricted cloud view of the local advertisement. No existing access is expanded.
 Migration `0006_reuse_revoked_node_labels.sql` limits name uniqueness to active devices. A retry also
 replaces a same-account, same-name pairing that never completed its first device poll. This recovers
 the narrow case where pairing succeeded remotely but the installer could not persist its private key.
+Migration `0007_timeline_pagination.sql` adds stable audit and approval timeline indexes, including
+the audit category expression used by filtered keyset queries.
 
 ## Validation
 

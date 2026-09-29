@@ -57,8 +57,10 @@
 - Source-mapped architecture diagrams for system context, pairing, invocation, authorization,
   dispatch state, idempotency, data ownership and current/planned boundaries
 - Account overview with setup progress, device health, active Agent/client counts, approvals and activity
+- Bounded console data access with aggregate Overview counts, batched project roots, cursor-paged
+  approvals/activity, category filters and batch audit enrichment without per-row queries
 - `/app` Overview, Devices, optional Projects/Roots, Agent access, Approvals, Activity and Settings
-- 708 typed translations, persisted language preference, locale-aware dates and old-route compatibility
+- 721 typed translations, persisted language preference, locale-aware dates and old-route compatibility
 - Separate internal CLI login and scoped connection credentials; stdio MCP cannot inherit
   account-management access
 - Same-origin local startup, public HTTPS Compose and loopback override, health and protected metrics
@@ -73,7 +75,7 @@
 
 ## Verified
 
-- 130 passing tests across 30 files on Node.js 22; one opt-in macOS service test skipped (131 total)
+- 136 passing tests across 30 files on Node.js 22; one opt-in macOS service test skipped (137 total)
 - Real PostgreSQL migration, concurrent `SKIP LOCKED` claims and restart persistence
 - Pairing/replay/revoke behavior
 - Symlink escape, secret redaction, command denial, timeout/cancel and output limits

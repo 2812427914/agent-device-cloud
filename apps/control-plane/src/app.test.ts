@@ -703,4 +703,165 @@ describe("control plane", () => {
       }
     });
   });
+
+  it("serves bounded management timelines and aggregate console data", async () => {
+    const timestamp = new Date();
+    const { app, store, node, paired, capability } = await fixture(() => timestamp);
+    await node.poll(
+      CapabilitySchema.parse({
+        ...capability,
+        roots: [
+          {
+            rootId: "root_workspace",
+            label: "workspace",
+            path: "/workspace",
+            writable: true
+          }
+        ]
+      })
+    );
+    await ownerRequest(app, "POST", "/api/v1/projects", {
+      projectId: "proj_example",
+      label: "Example"
+    });
+    await ownerRequest(app, "POST", "/api/v1/projects/proj_example/roots", {
+      rootId: "root_workspace",
+      nodeId: paired.nodeId,
+      label: "Workspace",
+      writable: true
+    });
+
+    const createdAt = new Date(timestamp.getTime() - 60_000).toISOString();
+    const expiredAt = new Date(timestamp.getTime() - 1_000).toISOString();
+    const validUntil = new Date(timestamp.getTime() + 60 * 60_000).toISOString();
+    for (const eventId of [
+      "evt_api_01",
+      "evt_api_02",
+      "evt_api_03",
+      "evt_api_04",
+      "evt_api_05",
+      "evt_api_06"
+    ]) {
+      await store.putAudit({
+        eventId,
+        accountId: "acct_primary",
+        type: eventId === "evt_api_03" ? "approval.requested" : "dispatch.queued",
+        payload: {},
+        createdAt
+      });
+    }
+
+    const first = await ownerRequest(app, "GET", "/api/v1/audit?limit=2");
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toMatchObject({
+      events: [{ eventId: "evt_api_06" }, { eventId: "evt_api_05" }],
+      hasMore: true,
+      nextCursor: expect.any(String)
+    });
+    await store.putAudit({
+      eventId: "evt_api_07",
+      accountId: "acct_primary",
+      type: "dispatch.queued",
+      payload: {},
+      createdAt
+    });
+    const second = await ownerRequest(
+      app,
+      "GET",
+      `/api/v1/audit?limit=2&cursor=${encodeURIComponent(first.json().nextCursor)}`
+    );
+    expect(second.json().events.map((event: { eventId: string }) => event.eventId)).toEqual([
+      "evt_api_04",
+      "evt_api_03"
+    ]);
+    const approvals = await ownerRequest(app, "GET", "/api/v1/audit?category=approval");
+    expect(approvals.json().events).toMatchObject([{ eventId: "evt_api_03" }]);
+    expect((await ownerRequest(app, "GET", "/api/v1/audit?cursor=invalid")).statusCode).toBe(400);
+
+    const overview = await ownerRequest(app, "GET", "/api/v1/overview");
+    expect(overview.json()).toMatchObject({
+      counts: {
+        connectedDevices: 1,
+        onlineNow: 1,
+        activeAgents: 0,
+        pendingApprovals: 0,
+        clientConnections: 0
+      },
+      recentActivity: [
+        { eventId: "evt_api_07" },
+        { eventId: "evt_api_06" },
+        { eventId: "evt_api_05" },
+        { eventId: "evt_api_04" },
+        { eventId: "evt_api_03" }
+      ]
+    });
+    const projects = await ownerRequest(app, "GET", "/api/v1/projects?include=roots");
+    expect(projects.json()).toMatchObject({
+      projects: [{ projectId: "proj_example" }],
+      roots: [
+        {
+          projectId: "proj_example",
+          nodeId: paired.nodeId,
+          rootId: "root_workspace",
+          path: "/workspace"
+        }
+      ]
+    });
+
+    for (const [approvalId, status, expiresAt] of [
+      ["apr_api_01", "approved", validUntil],
+      ["apr_api_02", "pending", expiredAt],
+      ["apr_api_03", "pending", validUntil]
+    ] as const) {
+      const invocation = InvocationSchema.parse({
+        schemaVersion: "0.1",
+        invocationId: createId("inv"),
+        attemptId: createId("att"),
+        accountId: "acct_primary",
+        actor: { type: "agent", id: "actor_testagent" },
+        target: { nodeId: paired.nodeId },
+        authorization: { rootIds: ["root_workspace"], grantId: "grant_example" },
+        tool: "file.read",
+        args: { rootId: "root_workspace", path: `${approvalId}.txt` },
+        issuedAt: createdAt,
+        expiresAt: validUntil,
+        metadata: { source: "sdk" }
+      });
+      await store.putApproval({
+        approvalId,
+        accountId: "acct_primary",
+        invocation,
+        nodeId: paired.nodeId,
+        placementReason: "explicit_node",
+        policyDecision: {
+          outcome: "approval_required",
+          reasonCode: "approval.required",
+          explanation: "Approval required by test.",
+          evaluatedLayers: ["account", "agent", "node", "root", "capability"],
+          profile: "approve-required",
+          decisionHash: `sha256:${"a".repeat(64)}`
+        },
+        status,
+        createdAt,
+        expiresAt
+      });
+    }
+    expect(
+      (await ownerRequest(app, "GET", "/api/v1/approvals?status=pending")).json()
+    ).toMatchObject({
+      approvals: [
+        { approvalId: "apr_api_03", status: "pending", path: "/workspace/apr_api_03.txt" }
+      ],
+      pendingCount: 1,
+      hasMore: false
+    });
+    expect(
+      (await ownerRequest(app, "GET", "/api/v1/approvals?status=resolved&limit=1")).json()
+    ).toMatchObject({
+      approvals: [{ approvalId: "apr_api_02", status: "expired" }],
+      pendingCount: 1,
+      hasMore: true,
+      nextCursor: expect.any(String)
+    });
+  });
 });

@@ -13,29 +13,6 @@ import { Link } from "react-router-dom";
 import { trackAnalytics } from "./analytics.tsx";
 import type { Request } from "./auth-ui.tsx";
 import { useI18n, type Message } from "./i18n.tsx";
-import type { NodeRecord } from "./main.tsx";
-
-interface GrantSummary {
-  grantId: string;
-  revokedAt?: string;
-}
-
-interface ApprovalSummary {
-  approvalId: string;
-  status: string;
-}
-
-interface CredentialSummary {
-  credentialId: string;
-  expiresAt: string;
-  revokedAt: string | null;
-}
-
-interface BindingSummary {
-  clientId: string;
-  revokedAt: string | null;
-}
-
 interface ActivitySummary {
   eventId: string;
   type: string;
@@ -44,21 +21,25 @@ interface ActivitySummary {
 }
 
 interface OverviewData {
-  nodes: NodeRecord[];
-  grants: GrantSummary[];
-  approvals: ApprovalSummary[];
-  credentials: CredentialSummary[];
-  bindings: BindingSummary[];
-  events: ActivitySummary[];
+  counts: {
+    connectedDevices: number;
+    onlineNow: number;
+    activeAgents: number;
+    pendingApprovals: number;
+    clientConnections: number;
+  };
+  recentActivity: ActivitySummary[];
 }
 
 const emptyData: OverviewData = {
-  nodes: [],
-  grants: [],
-  approvals: [],
-  credentials: [],
-  bindings: [],
-  events: []
+  counts: {
+    connectedDevices: 0,
+    onlineNow: 0,
+    activeAgents: 0,
+    pendingApprovals: 0,
+    clientConnections: 0
+  },
+  recentActivity: []
 };
 
 export function Overview({
@@ -76,24 +57,10 @@ export function Overview({
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      request("/api/v1/nodes"),
-      request("/api/v1/grants"),
-      request("/api/v1/approvals"),
-      request("/api/v1/credentials"),
-      request("/api/v1/oauth/bindings"),
-      request("/api/v1/audit")
-    ])
-      .then(([nodes, grants, approvals, credentials, bindings, audit]) => {
+    request("/api/v1/overview")
+      .then((body) => {
         if (!active) return;
-        setData({
-          nodes: nodes.nodes,
-          grants: grants.grants,
-          approvals: approvals.approvals,
-          credentials: credentials.credentials,
-          bindings: bindings.bindings,
-          events: audit.events
-        });
+        setData(body);
         setLoaded(true);
       })
       .catch((error) => {
@@ -104,18 +71,16 @@ export function Overview({
     };
   }, [request, revision, onError]);
 
-  const activeNodes = data.nodes.filter((node) => node.status === "active");
-  const onlineNodes = activeNodes.filter((node) => node.online);
-  const activeGrants = data.grants.filter((grant) => !grant.revokedAt);
-  const pendingApprovals = data.approvals.filter((approval) => approval.status === "pending");
-  const activeCredentials = data.credentials.filter(
-    (credential) => !credential.revokedAt && Date.parse(credential.expiresAt) > Date.now()
-  );
-  const activeBindings = data.bindings.filter((binding) => !binding.revokedAt);
-  const clientConnections = activeCredentials.length + activeBindings.length;
-  const offline = activeNodes.length - onlineNodes.length;
+  const offline = data.counts.connectedDevices - data.counts.onlineNow;
+  const hasNoDevices = data.counts.connectedDevices === 0;
   useEffect(() => {
-    if (!loaded || !activeNodes.length || !activeGrants.length || !clientConnections) return;
+    if (
+      !loaded ||
+      !data.counts.connectedDevices ||
+      !data.counts.activeAgents ||
+      !data.counts.clientConnections
+    )
+      return;
     try {
       if (localStorage.getItem("adc.analytics.setup-complete.v1") === "1") return;
     } catch {
@@ -127,13 +92,18 @@ export function Overview({
     } catch {
       /* Browser storage is optional. */
     }
-  }, [activeGrants.length, activeNodes.length, clientConnections, loaded]);
+  }, [
+    data.counts.activeAgents,
+    data.counts.clientConnections,
+    data.counts.connectedDevices,
+    loaded
+  ]);
   const stats: Array<[Message, number, typeof Cable]> = [
-    ["Connected devices", activeNodes.length, Cable],
-    ["Online now", onlineNodes.length, Activity],
-    ["Active agents", activeGrants.length, Bot],
-    ["Pending approvals", pendingApprovals.length, ShieldCheck],
-    ["Client connections", clientConnections, KeyRound]
+    ["Connected devices", data.counts.connectedDevices, Cable],
+    ["Online now", data.counts.onlineNow, Activity],
+    ["Active agents", data.counts.activeAgents, Bot],
+    ["Pending approvals", data.counts.pendingApprovals, ShieldCheck],
+    ["Client connections", data.counts.clientConnections, KeyRound]
   ];
   const setup: Array<{
     title: Message;
@@ -144,23 +114,23 @@ export function Overview({
     {
       title: "Device connected",
       description: "Pair and configure a device.",
-      complete: activeNodes.length > 0,
+      complete: data.counts.connectedDevices > 0,
       to: "/app/devices"
     },
     {
       title: "Agent authorized",
       description: "Define an agent's devices and capabilities.",
-      complete: activeGrants.length > 0,
+      complete: data.counts.activeAgents > 0,
       to: "/app/agents"
     },
     {
       title: "Client connected",
       description: "Connect the CLI or an MCP client.",
-      complete: clientConnections > 0,
+      complete: data.counts.clientConnections > 0,
       to: "/app/agents"
     }
   ];
-  const recent = data.events.slice(-5).reverse();
+  const recent = data.recentActivity;
 
   return (
     <section className="page overview-page">
@@ -186,18 +156,16 @@ export function Overview({
         ))}
       </div>
       <div
-        className={`overview-health ${offline > 0 || activeNodes.length === 0 ? "attention" : ""}`}
+        className={`overview-health ${offline > 0 || hasNoDevices ? "attention" : ""}`}
         role="status"
         aria-live="polite"
       >
-        <span
-          className={`status-dot ${offline > 0 || activeNodes.length === 0 ? "offline" : "online"}`}
-        />
+        <span className={`status-dot ${offline > 0 || hasNoDevices ? "offline" : "online"}`} />
         <strong>
           {t(
             !loaded
               ? "Loading…"
-              : offline > 0 || activeNodes.length === 0
+              : offline > 0 || hasNoDevices
                 ? "Attention needed"
                 : "Everything connected at a glance."
           )}
@@ -206,7 +174,7 @@ export function Overview({
           {t(
             !loaded
               ? "Loading your account…"
-              : activeNodes.length === 0
+              : hasNoDevices
                 ? "Pair and configure a device."
                 : offline > 0
                   ? "{count} devices are offline."
@@ -233,7 +201,7 @@ export function Overview({
               </Link>
             ))}
           </div>
-          {pendingApprovals.length ? (
+          {data.counts.pendingApprovals ? (
             <Link className="secondary overview-action" to="/app/approvals">
               <ShieldCheck size={15} />
               {t("Review approvals")}

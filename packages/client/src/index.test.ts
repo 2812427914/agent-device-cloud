@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildInvocation, defaultTarget, type InvocationContext } from "./index.ts";
+import { AdcClient, buildInvocation, defaultTarget, type InvocationContext } from "./index.ts";
 
 const context: InvocationContext = {
   accountId: "acct_example",
@@ -112,5 +112,52 @@ describe("device invocation context", () => {
         source: "cli"
       })
     ).toThrow("idempotencyKey");
+  });
+
+  it("exposes bounded audit and approval page contracts", async () => {
+    const requests: URL[] = [];
+    const fetcher = (async (input: RequestInfo | URL) => {
+      const url = new URL(input.toString());
+      requests.push(url);
+      if (url.pathname.endsWith("/approvals")) {
+        return Response.json({
+          approvals: [],
+          nextCursor: "approval-next",
+          hasMore: true,
+          pendingCount: 4
+        });
+      }
+      return Response.json({
+        events: [{ id: "newest" }, { id: "oldest" }],
+        nextCursor: "audit-next",
+        hasMore: true
+      });
+    }) as typeof fetch;
+    const client = new AdcClient("https://adc.example", { cookie: "session=example" }, fetcher);
+
+    await expect(
+      client.auditPage({
+        invocationId: "inv_example",
+        limit: 25,
+        cursor: "audit-cursor",
+        category: "dispatch"
+      })
+    ).resolves.toMatchObject({ nextCursor: "audit-next", hasMore: true });
+    expect(Object.fromEntries(requests[0]!.searchParams)).toEqual({
+      invocationId: "inv_example",
+      limit: "25",
+      cursor: "audit-cursor",
+      category: "dispatch"
+    });
+    await expect(client.audit()).resolves.toEqual([{ id: "oldest" }, { id: "newest" }]);
+    expect(requests[1]!.searchParams.get("limit")).toBe("100");
+    await expect(
+      client.listApprovalsPage({ limit: 20, cursor: "approval-cursor", status: "resolved" })
+    ).resolves.toMatchObject({ pendingCount: 4, nextCursor: "approval-next" });
+    expect(Object.fromEntries(requests[2]!.searchParams)).toEqual({
+      limit: "20",
+      cursor: "approval-cursor",
+      status: "resolved"
+    });
   });
 });

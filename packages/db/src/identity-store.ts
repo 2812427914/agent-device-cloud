@@ -171,6 +171,27 @@ export class IdentityStore {
     }));
   }
 
+  async countActiveConnections(accountId: string, now: string): Promise<number> {
+    const result = await this.pool.query<{ count: string }>(
+      `SELECT (
+         (SELECT COUNT(*) FROM adc_credentials c
+          JOIN adc_agent_grants g
+            ON g.grant_id = c.grant_id AND g.account_id = c.account_id
+          WHERE c.account_id = $1
+            AND c.revoked_at IS NULL AND c.expires_at > $2::timestamptz
+            AND g.revoked_at IS NULL AND g.deleted_at IS NULL)
+         +
+         (SELECT COUNT(*) FROM adc_oauth_bindings b
+          JOIN adc_agent_grants g
+            ON g.grant_id = b.grant_id AND g.account_id = b.account_id
+          WHERE b.account_id = $1 AND b.revoked_at IS NULL
+            AND g.revoked_at IS NULL AND g.deleted_at IS NULL)
+       )::text AS count`,
+      [accountId, now]
+    );
+    return Number(result.rows[0]?.count ?? 0);
+  }
+
   async takeRateLimit(key: string, max: number, windowSeconds: number): Promise<boolean> {
     const result = await this.pool.query<{ count: number }>(
       `INSERT INTO adc_rate_limits (key, count, expires_at)

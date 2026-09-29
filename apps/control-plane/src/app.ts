@@ -6,7 +6,15 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { Counter, Gauge, Registry, collectDefaultMetrics } from "prom-client";
 import { z } from "zod";
 import { verifyNodeRequest } from "@adc/client";
-import { type AgentGrantRecord, type DispatchRecord, type NodeRecord, type Store } from "@adc/db";
+import {
+  type AgentGrantRecord,
+  type ApprovalRecord,
+  type AuditEvent,
+  type DispatchRecord,
+  type NodeRecord,
+  type PageCursor,
+  type Store
+} from "@adc/db";
 import { evaluatePolicy, sha256 } from "@adc/policy";
 import { createMcpServer } from "@adc/mcp-adapter";
 import {
@@ -76,6 +84,90 @@ function invocationPath(invocation: Invocation, node: NodeRecord | undefined): s
   const relativePath = invocation.tool.startsWith("file.") ? args.path : args.cwd;
   if (typeof relativePath !== "string" || relativePath === "") return rootPath;
   return rootPath === "/" ? `/${relativePath}` : `${rootPath}/${relativePath}`;
+}
+
+const PageCursorSchema = z
+  .object({
+    createdAt: z.string().datetime(),
+    itemId: z.string().min(1).max(160)
+  })
+  .strict();
+const AuditCategorySchema = z.enum([
+  "dispatch",
+  "approval",
+  "task",
+  "node",
+  "grant",
+  "credential",
+  "oauth"
+]);
+
+function encodePageCursor(cursor: PageCursor | undefined): string | null {
+  return cursor ? Buffer.from(JSON.stringify(cursor)).toString("base64url") : null;
+}
+
+function decodePageCursor(value: string | undefined): PageCursor | undefined {
+  if (!value) return;
+  try {
+    return PageCursorSchema.parse(JSON.parse(Buffer.from(value, "base64url").toString("utf8")));
+  } catch {
+    throw new ProtocolError(ErrorCodes.INVALID_REQUEST, "pagination cursor is invalid", false);
+  }
+}
+
+async function auditView(
+  store: Store,
+  accountId: string,
+  events: AuditEvent[]
+): Promise<AuditEvent[]> {
+  const invocationIds = [
+    ...new Set(
+      events.map((event) => event.invocationId).filter((id): id is string => typeof id === "string")
+    )
+  ];
+  const dispatches = await store.listDispatchesByInvocationIds(accountId, invocationIds);
+  const dispatchByInvocation = new Map(
+    dispatches.map((dispatch) => [dispatch.invocation.invocationId, dispatch])
+  );
+  const nodes = new Map(
+    (
+      await store.listNodesByIds(accountId, [
+        ...new Set(dispatches.map((dispatch) => dispatch.nodeId))
+      ])
+    ).map((node) => [node.nodeId, node])
+  );
+  return events.map((event) => {
+    const dispatch = event.invocationId ? dispatchByInvocation.get(event.invocationId) : undefined;
+    if (!dispatch) return event;
+    const path = invocationPath(dispatch.invocation, nodes.get(dispatch.nodeId));
+    return {
+      ...event,
+      payload: {
+        ...event.payload,
+        nodeId: dispatch.nodeId,
+        tool: dispatch.invocation.tool,
+        ...(path ? { path } : {})
+      }
+    };
+  });
+}
+
+async function approvalView(
+  store: Store,
+  accountId: string,
+  approvals: ApprovalRecord[]
+): Promise<Array<ApprovalRecord & { path?: string }>> {
+  const nodes = new Map(
+    (
+      await store.listNodesByIds(accountId, [
+        ...new Set(approvals.map((approval) => approval.nodeId))
+      ])
+    ).map((node) => [node.nodeId, node])
+  );
+  return approvals.map((approval) => {
+    const path = invocationPath(approval.invocation, nodes.get(approval.nodeId));
+    return { ...approval, ...(path ? { path } : {}) };
+  });
 }
 
 function hash(value: string): string {
@@ -470,6 +562,30 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
     requireAuthenticated,
     principal: (request) => principals.get(request)!
   });
+  app.get("/api/v1/overview", { preHandler: requireOwner }, async (request) => {
+    const accountId = accountOf(request);
+    const timestamp = now();
+    const [resources, activeConnections, activity] = await Promise.all([
+      options.store.getAccountResourceSummary(
+        accountId,
+        new Date(timestamp.getTime() - presenceTtlMs).toISOString(),
+        timestamp.toISOString()
+      ),
+      options.access.identity?.countActiveConnections(accountId, timestamp.toISOString()) ??
+        Promise.resolve(0),
+      options.store.listAuditPage(accountId, { limit: 5 })
+    ]);
+    return {
+      counts: {
+        connectedDevices: resources.activeNodes,
+        onlineNow: resources.onlineNodes,
+        activeAgents: resources.activeGrants,
+        pendingApprovals: resources.pendingApprovals,
+        clientConnections: activeConnections
+      },
+      recentActivity: await auditView(options.store, accountId, activity.events)
+    };
+  });
   app.get("/metrics", { preHandler: requireOwner }, async (_request, reply) => {
     return reply.type(metrics.contentType).send(await metrics.metrics());
   });
@@ -619,9 +735,29 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
     return project;
   });
 
-  app.get("/api/v1/projects", { preHandler: requireOwner }, async (request) => ({
-    projects: await options.store.listProjects(accountOf(request))
-  }));
+  app.get("/api/v1/projects", { preHandler: requireOwner }, async (request) => {
+    const accountId = accountOf(request);
+    const { include } = z
+      .object({ include: z.literal("roots").optional() })
+      .strict()
+      .parse(request.query);
+    const projects = await options.store.listProjects(accountId);
+    if (include !== "roots") return { projects };
+    const [roots, listedNodes] = await Promise.all([
+      options.store.listRootsForAccount(accountId),
+      options.store.listNodes(accountId)
+    ]);
+    const nodes = new Map(listedNodes.map((node) => [node.nodeId, node]));
+    return {
+      projects,
+      roots: roots.map((root) => {
+        const advertised = nodes
+          .get(root.nodeId)
+          ?.capability?.roots.find((candidate) => candidate.rootId === root.rootId);
+        return { ...root, ...(advertised?.path ? { path: advertised.path } : {}) };
+      })
+    };
+  });
 
   app.get(
     "/api/v1/projects/:projectId/roots",
@@ -1289,23 +1425,27 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
   );
 
   app.get("/api/v1/approvals", { preHandler: requireOwner }, async (request) => {
-    const approvals = await options.store.listApprovals(accountOf(request));
-    const nodes = new Map(
-      (
-        await Promise.all(
-          [...new Set(approvals.map((approval) => approval.nodeId))].map((nodeId) =>
-            options.store.getNode(nodeId)
-          )
-        )
-      )
-        .filter((node): node is NodeRecord => !!node)
-        .map((node) => [node.nodeId, node])
-    );
+    const accountId = accountOf(request);
+    const query = z
+      .object({
+        limit: z.coerce.number().int().min(1).max(100).default(50),
+        cursor: z.string().max(512).optional(),
+        status: z.enum(["pending", "resolved"]).optional()
+      })
+      .strict()
+      .parse(request.query);
+    const before = query.cursor ? decodePageCursor(query.cursor) : undefined;
+    const page = await options.store.listApprovalsPage(accountId, {
+      limit: query.limit,
+      now: now().toISOString(),
+      ...(before ? { before } : {}),
+      ...(query.status ? { status: query.status } : {})
+    });
     return {
-      approvals: approvals.map((approval) => ({
-        ...approval,
-        path: invocationPath(approval.invocation, nodes.get(approval.nodeId))
-      }))
+      approvals: await approvalView(options.store, accountId, page.approvals),
+      nextCursor: encodePageCursor(page.nextCursor),
+      hasMore: !!page.nextCursor,
+      pendingCount: page.pendingCount
     };
   });
 
@@ -1428,50 +1568,26 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
 
   app.get("/api/v1/audit", { preHandler: requireOwner }, async (request) => {
     const accountId = accountOf(request);
-    const { invocationId } = z.object({ invocationId: z.string().optional() }).parse(request.query);
-    const events = await options.store.listAudit(accountId, invocationId);
-    const dispatches = (
-      await Promise.all(
-        [
-          ...new Set(
-            events
-              .map((event) => event.invocationId)
-              .filter((id): id is string => typeof id === "string")
-          )
-        ].map((id) => options.store.getDispatchByInvocation(id))
-      )
-    ).filter((dispatch): dispatch is DispatchRecord => !!dispatch);
-    const dispatchByInvocation = new Map(
-      dispatches.map((dispatch) => [dispatch.invocation.invocationId, dispatch])
-    );
-    const nodes = new Map(
-      (
-        await Promise.all(
-          [...new Set(dispatches.map((dispatch) => dispatch.nodeId))].map((nodeId) =>
-            options.store.getNode(nodeId)
-          )
-        )
-      )
-        .filter((node): node is NodeRecord => !!node)
-        .map((node) => [node.nodeId, node])
-    );
-    return {
-      events: events.map((event) => {
-        const dispatch = event.invocationId
-          ? dispatchByInvocation.get(event.invocationId)
-          : undefined;
-        if (!dispatch) return event;
-        const path = invocationPath(dispatch.invocation, nodes.get(dispatch.nodeId));
-        return {
-          ...event,
-          payload: {
-            ...event.payload,
-            nodeId: dispatch.nodeId,
-            tool: dispatch.invocation.tool,
-            ...(path ? { path } : {})
-          }
-        };
+    const query = z
+      .object({
+        invocationId: InvocationIdSchema.optional(),
+        limit: z.coerce.number().int().min(1).max(100).default(50),
+        cursor: z.string().max(512).optional(),
+        category: AuditCategorySchema.optional()
       })
+      .strict()
+      .parse(request.query);
+    const before = query.cursor ? decodePageCursor(query.cursor) : undefined;
+    const page = await options.store.listAuditPage(accountId, {
+      limit: query.limit,
+      ...(query.invocationId ? { invocationId: query.invocationId } : {}),
+      ...(query.category ? { eventTypePrefix: query.category } : {}),
+      ...(before ? { before } : {})
+    });
+    return {
+      events: await auditView(options.store, accountId, page.events),
+      nextCursor: encodePageCursor(page.nextCursor),
+      hasMore: !!page.nextCursor
     };
   });
 

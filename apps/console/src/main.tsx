@@ -13,6 +13,8 @@ import {
   Bot,
   Cable,
   Check,
+  ChevronLeft,
+  ChevronRight,
   CirclePlus,
   Clipboard,
   FolderRoot,
@@ -116,6 +118,9 @@ interface ApprovalRecord {
   createdAt: string;
   expiresAt: string;
 }
+type ApprovalFilter = "all" | "pending" | "resolved";
+type AuditCategory =
+  "all" | "dispatch" | "approval" | "task" | "node" | "grant" | "credential" | "oauth";
 type PageProps = {
   request: Request;
   revision: number;
@@ -353,6 +358,39 @@ function Empty({ icon, label }: { icon: ReactNode; label: string }) {
     </div>
   );
 }
+
+function PaginationControls({
+  page,
+  hasPrevious,
+  hasNext,
+  loading,
+  onPrevious,
+  onNext
+}: {
+  page: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  loading: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  const { t } = useI18n();
+  if (!hasPrevious && !hasNext) return null;
+  return (
+    <div className="table-pagination" aria-busy={loading}>
+      <button className="secondary" disabled={!hasPrevious || loading} onClick={onPrevious}>
+        <ChevronLeft size={15} />
+        {t("Previous")}
+      </button>
+      <span>{t("Page {page}", { page })}</span>
+      <button className="secondary" disabled={!hasNext || loading} onClick={onNext}>
+        {t("Next")}
+        <ChevronRight size={15} />
+      </button>
+    </div>
+  );
+}
+
 function Devices({ request, revision, refresh, onError }: PageProps) {
   const { t, term, date } = useI18n();
   const [nodes, setNodes] = useState<NodeRecord[]>([]);
@@ -691,17 +729,12 @@ function Projects({ request, revision, refresh, onError }: PageProps) {
     [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    Promise.all([request("/api/v1/projects"), request("/api/v1/nodes")])
-      .then(async ([p, n]) => {
-        const loaded = await Promise.all(
-          p.projects.map((project: ProjectRecord) =>
-            request(`/api/v1/projects/${project.projectId}/roots`)
-          )
-        );
+    Promise.all([request("/api/v1/projects?include=roots"), request("/api/v1/nodes")])
+      .then(([p, n]) => {
         if (active) {
           setProjects(p.projects);
           setNodes(n.nodes);
-          setRoots(loaded.flatMap((body) => body.roots));
+          setRoots(p.roots);
         }
       })
       .catch((error) => {
@@ -869,13 +902,53 @@ function Projects({ request, revision, refresh, onError }: PageProps) {
 }
 function Access({ request, revision, refresh, onError }: PageProps) {
   const { t, term, date } = useI18n();
-  const [approvals, setApprovals] = useState<ApprovalRecord[]>([]),
-    [busy, setBusy] = useState("");
+  const [approvals, setApprovals] = useState<ApprovalRecord[]>([]);
+  const [filter, setFilter] = useState<ApprovalFilter>("all");
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState("");
   useEffect(() => {
-    request("/api/v1/approvals")
-      .then((body) => setApprovals(body.approvals))
-      .catch((error) => onError(error.message));
-  }, [request, revision, onError]);
+    let active = true;
+    const query = new URLSearchParams({ limit: "50" });
+    if (cursor) query.set("cursor", cursor);
+    if (filter !== "all") query.set("status", filter);
+    setLoading(true);
+    request(`/api/v1/approvals?${query}`)
+      .then((body) => {
+        if (!active) return;
+        setApprovals(body.approvals);
+        setNextCursor(body.nextCursor);
+        setPendingCount(body.pendingCount);
+      })
+      .catch((error) => {
+        if (active) onError(error.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [request, revision, onError, cursor, filter]);
+  const changeFilter = (value: ApprovalFilter) => {
+    setFilter(value);
+    setCursor(null);
+    setCursorHistory([]);
+    setNextCursor(null);
+  };
+  const nextPage = () => {
+    if (!nextCursor) return;
+    setCursorHistory((history) => [...history, cursor]);
+    setCursor(nextCursor);
+  };
+  const previousPage = () => {
+    if (!cursorHistory.length) return;
+    setCursor(cursorHistory.at(-1) ?? null);
+    setCursorHistory((history) => history.slice(0, -1));
+  };
   const resolve = async (approvalId: string, decision: "approved" | "denied") => {
     setBusy(approvalId);
     try {
@@ -892,11 +965,28 @@ function Access({ request, revision, refresh, onError }: PageProps) {
   };
   return (
     <section className="page">
-      <PageHeader
-        title={t("Approvals")}
-        count={approvals.filter((item) => item.status === "pending").length}
-      />
-      <div className="table-wrap">
+      <PageHeader title={t("Approvals")} count={pendingCount} />
+      <div className="table-toolbar">
+        <div className="filter-tabs" aria-label={t("Filter approvals")}>
+          {(
+            [
+              ["all", "All"],
+              ["pending", "Pending"],
+              ["resolved", "Resolved"]
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              aria-pressed={filter === value}
+              disabled={loading && filter === value}
+              onClick={() => changeFilter(value)}
+            >
+              {t(label)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="table-wrap" aria-busy={loading}>
         <table>
           <thead>
             <tr>
@@ -964,23 +1054,97 @@ function Access({ request, revision, refresh, onError }: PageProps) {
             ))}
           </tbody>
         </table>
-        {!approvals.length ? <Empty icon={<ShieldCheck />} label={t("No approvals")} /> : null}
+        {!loading && !approvals.length ? (
+          <Empty icon={<ShieldCheck />} label={t("No approvals")} />
+        ) : null}
       </div>
+      <PaginationControls
+        page={cursorHistory.length + 1}
+        hasPrevious={cursorHistory.length > 0}
+        hasNext={!!nextCursor}
+        loading={loading}
+        onPrevious={previousPage}
+        onNext={nextPage}
+      />
     </section>
   );
 }
 function Audit({ request, revision, onError }: PageProps) {
   const { t, term, date } = useI18n();
   const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [category, setCategory] = useState<AuditCategory>("all");
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    request("/api/v1/audit")
-      .then((body) => setEvents(body.events.slice().reverse()))
-      .catch((error) => onError(error.message));
-  }, [request, revision, onError]);
+    let active = true;
+    const query = new URLSearchParams({ limit: "50" });
+    if (cursor) query.set("cursor", cursor);
+    if (category !== "all") query.set("category", category);
+    setLoading(true);
+    request(`/api/v1/audit?${query}`)
+      .then((body) => {
+        if (!active) return;
+        setEvents(body.events);
+        setNextCursor(body.nextCursor);
+      })
+      .catch((error) => {
+        if (active) onError(error.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [request, revision, onError, cursor, category]);
+  const changeCategory = (value: AuditCategory) => {
+    setCategory(value);
+    setCursor(null);
+    setCursorHistory([]);
+    setNextCursor(null);
+  };
+  const nextPage = () => {
+    if (!nextCursor) return;
+    setCursorHistory((history) => [...history, cursor]);
+    setCursor(nextCursor);
+  };
+  const previousPage = () => {
+    if (!cursorHistory.length) return;
+    setCursor(cursorHistory.at(-1) ?? null);
+    setCursorHistory((history) => history.slice(0, -1));
+  };
+  const categories: Array<[AuditCategory, Message]> = [
+    ["all", "All activity"],
+    ["dispatch", "Dispatches"],
+    ["approval", "Approvals"],
+    ["task", "Tasks"],
+    ["node", "Devices"],
+    ["grant", "Agent access"],
+    ["credential", "Credentials"],
+    ["oauth", "OAuth"]
+  ];
   return (
     <section className="page">
-      <PageHeader title={t("Activity")} count={events.length} />
-      <div className="table-wrap">
+      <PageHeader title={t("Activity")} />
+      <div className="table-toolbar">
+        <label className="table-filter">
+          <span>{t("Filter activity")}</span>
+          <select
+            value={category}
+            disabled={loading}
+            onChange={(event) => changeCategory(event.target.value as AuditCategory)}
+          >
+            {categories.map(([value, label]) => (
+              <option key={value} value={value}>
+                {t(label)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="table-wrap" aria-busy={loading}>
         <table>
           <thead>
             <tr>
@@ -1012,8 +1176,18 @@ function Audit({ request, revision, onError }: PageProps) {
             ))}
           </tbody>
         </table>
-        {!events.length ? <Empty icon={<Activity />} label={t("No activity yet")} /> : null}
+        {!loading && !events.length ? (
+          <Empty icon={<Activity />} label={t("No activity yet")} />
+        ) : null}
       </div>
+      <PaginationControls
+        page={cursorHistory.length + 1}
+        hasPrevious={cursorHistory.length > 0}
+        hasNext={!!nextCursor}
+        loading={loading}
+        onPrevious={previousPage}
+        onNext={nextPage}
+      />
     </section>
   );
 }

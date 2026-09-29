@@ -234,4 +234,102 @@ describe("MemoryStore", () => {
     );
     expect(retry?.status).toBe("succeeded");
   });
+
+  it("paginates audit events with stable cursors and account isolation", async () => {
+    const store = new MemoryStore();
+    const createdAt = "2026-09-24T00:00:00.000Z";
+    for (const eventId of ["evt_01", "evt_02", "evt_03", "evt_04", "evt_05"]) {
+      await store.putAudit({
+        eventId,
+        accountId: "acct_primary",
+        type: eventId === "evt_03" ? "approval.requested" : "dispatch.queued",
+        payload: {},
+        createdAt
+      });
+    }
+    await store.putAudit({
+      eventId: "evt_other",
+      accountId: "acct_other",
+      type: "dispatch.queued",
+      payload: {},
+      createdAt
+    });
+
+    const first = await store.listAuditPage("acct_primary", { limit: 2 });
+    expect(first.events.map((event) => event.eventId)).toEqual(["evt_05", "evt_04"]);
+    await store.putAudit({
+      eventId: "evt_06",
+      accountId: "acct_primary",
+      type: "dispatch.queued",
+      payload: {},
+      createdAt
+    });
+    const second = await store.listAuditPage("acct_primary", {
+      limit: 2,
+      before: first.nextCursor!
+    });
+    const third = await store.listAuditPage("acct_primary", {
+      limit: 2,
+      before: second.nextCursor!
+    });
+    expect(
+      [...first.events, ...second.events, ...third.events].map((event) => event.eventId)
+    ).toEqual(["evt_05", "evt_04", "evt_03", "evt_02", "evt_01"]);
+    await expect(
+      store.listAuditPage("acct_primary", { limit: 10, eventTypePrefix: "approval" })
+    ).resolves.toMatchObject({ events: [{ eventId: "evt_03" }] });
+  });
+
+  it("paginates approvals by effective status and reports the pending total", async () => {
+    const store = new MemoryStore();
+    const createdAt = "2026-09-24T00:00:00.000Z";
+    const now = "2026-09-24T00:30:00.000Z";
+    const statuses = [
+      ["apr_01", "approved", "2026-09-24T01:00:00.000Z"],
+      ["apr_02", "pending", "2026-09-24T00:10:00.000Z"],
+      ["apr_03", "denied", "2026-09-24T01:00:00.000Z"],
+      ["apr_04", "pending", "2026-09-24T01:00:00.000Z"]
+    ] as const;
+    for (const [approvalId, status, expiresAt] of statuses) {
+      const dispatch = makeDispatch();
+      await store.putApproval({
+        approvalId,
+        accountId: "acct_primary",
+        invocation: dispatch.invocation,
+        nodeId: dispatch.nodeId,
+        placementReason: "explicit_node",
+        policyDecision: dispatch.policyDecision,
+        status,
+        createdAt,
+        expiresAt
+      });
+    }
+
+    await expect(
+      store.listApprovalsPage("acct_primary", { limit: 10, status: "pending", now })
+    ).resolves.toMatchObject({
+      approvals: [{ approvalId: "apr_04", status: "pending" }],
+      pendingCount: 1
+    });
+    const resolved = await store.listApprovalsPage("acct_primary", {
+      limit: 2,
+      status: "resolved",
+      now
+    });
+    expect(resolved.approvals).toMatchObject([
+      { approvalId: "apr_03", status: "denied" },
+      { approvalId: "apr_02", status: "expired" }
+    ]);
+    await expect(
+      store.listApprovalsPage("acct_primary", {
+        limit: 2,
+        status: "resolved",
+        now,
+        before: resolved.nextCursor!
+      })
+    ).resolves.toMatchObject({
+      approvals: [{ approvalId: "apr_01", status: "approved" }],
+      pendingCount: 1
+    });
+  });
 });

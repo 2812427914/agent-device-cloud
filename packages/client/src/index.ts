@@ -146,6 +146,22 @@ export interface PendingApproval {
   resolvedAt?: string;
 }
 
+export type AuditCategory =
+  "dispatch" | "approval" | "task" | "node" | "grant" | "credential" | "oauth";
+
+export interface AuditPage {
+  events: unknown[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface ApprovalPage {
+  approvals: PendingApproval[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  pendingCount: number;
+}
+
 export interface NodeInstallation {
   available: boolean;
   controlPlaneUrl?: string;
@@ -489,17 +505,45 @@ export class AdcClient {
     );
   }
 
+  async auditPage(
+    options: {
+      invocationId?: string;
+      limit?: number;
+      cursor?: string;
+      category?: AuditCategory;
+    } = {}
+  ): Promise<AuditPage> {
+    const query = new URLSearchParams();
+    if (options.invocationId) query.set("invocationId", options.invocationId);
+    if (options.limit !== undefined) query.set("limit", String(options.limit));
+    if (options.cursor) query.set("cursor", options.cursor);
+    if (options.category) query.set("category", options.category);
+    const suffix = query.size ? `?${query}` : "";
+    return (await this.request(`/api/v1/audit${suffix}`)) as AuditPage;
+  }
+
   async audit(invocationId?: string): Promise<unknown[]> {
-    const query = invocationId ? `?invocationId=${encodeURIComponent(invocationId)}` : "";
-    const response = (await this.request(`/api/v1/audit${query}`)) as { events: unknown[] };
-    return response.events;
+    const page = await this.auditPage({ ...(invocationId ? { invocationId } : {}), limit: 100 });
+    return page.events.slice().reverse();
+  }
+
+  async listApprovalsPage(
+    options: {
+      limit?: number;
+      cursor?: string;
+      status?: "pending" | "resolved";
+    } = {}
+  ): Promise<ApprovalPage> {
+    const query = new URLSearchParams();
+    if (options.limit !== undefined) query.set("limit", String(options.limit));
+    if (options.cursor) query.set("cursor", options.cursor);
+    if (options.status) query.set("status", options.status);
+    const suffix = query.size ? `?${query}` : "";
+    return (await this.request(`/api/v1/approvals${suffix}`)) as ApprovalPage;
   }
 
   async listApprovals(): Promise<PendingApproval[]> {
-    const response = (await this.request("/api/v1/approvals")) as {
-      approvals: PendingApproval[];
-    };
-    return response.approvals;
+    return (await this.listApprovalsPage()).approvals;
   }
 
   async resolveApproval(approvalId: string, decision: "approved" | "denied"): Promise<unknown> {
