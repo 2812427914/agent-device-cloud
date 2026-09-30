@@ -73,7 +73,8 @@ export interface ControlPlaneOptions {
   nodeDistribution?: NodeDistribution;
   trustProxy?: string[];
   /** Opt-in cross-origin origins for API consumers. See registerCors(). */
-  corsOrigins?: string[] | "*";  analytics?: HostedAnalyticsOptions;
+  corsOrigins?: string[] | "*";
+  analytics?: HostedAnalyticsOptions;
 }
 
 function invocationPath(invocation: Invocation, node: NodeRecord | undefined): string | undefined {
@@ -368,12 +369,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       principal.readOnly &&
       !["GET", "HEAD", "OPTIONS"].includes(request.method)
     ) {
-      return apiError(
-        reply,
-        403,
-        ErrorCodes.DENIED,
-        "This personal access token is read-only."
-      );
+      return apiError(reply, 403, ErrorCodes.DENIED, "This personal access token is read-only.");
     }
   }
 

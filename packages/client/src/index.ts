@@ -1,5 +1,4 @@
 import {
-  CapabilitySchema,
   ErrorSchema,
   InvocationSchema,
   ResultSchema,
@@ -16,7 +15,6 @@ import {
   type ToolCapability,
   type ToolId
 } from "@adc/protocol";
-
 
 type Fetch = typeof globalThis.fetch;
 

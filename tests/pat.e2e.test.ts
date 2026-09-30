@@ -106,9 +106,8 @@ describe("owner personal access tokens", () => {
         .statusCode
     ).toBe(403);
     expect(
-      (
-        await post(`/api/v1/pats/${pat.patId}/revoke`, {}, { authorization: `Bearer ${token}` })
-      ).statusCode
+      (await post(`/api/v1/pats/${pat.patId}/revoke`, {}, { authorization: `Bearer ${token}` }))
+        .statusCode
     ).toBe(403);
 
     // A full PAT can write owner state cross-origin (no CSRF surface without cookies).
@@ -125,8 +124,13 @@ describe("owner personal access tokens", () => {
 
     // But token management stays session-only even for full PATs.
     expect(
-      (await post("/api/v1/pats", { label: "mint via pat" }, { authorization: `Bearer ${fullToken}` }))
-        .statusCode
+      (
+        await post(
+          "/api/v1/pats",
+          { label: "mint via pat" },
+          { authorization: `Bearer ${fullToken}` }
+        )
+      ).statusCode
     ).toBe(403);
 
     // Revocation takes effect immediately.

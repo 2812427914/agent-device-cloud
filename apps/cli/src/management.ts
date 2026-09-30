@@ -749,7 +749,9 @@ export async function runManagementCommand(input: {
       await client.revokePat(pat.patId);
       return { handled: true, value: { schemaVersion: "0.1", revoked: true, id: pat.patId } };
     }
-    throw new Error("usage: adc pat create --label NAME [--read-only] [--expires DAYS] | list | revoke PAT --yes");
+    throw new Error(
+      "usage: adc pat create --label NAME [--read-only] [--expires DAYS] | list | revoke PAT --yes"
+    );
   }
 
   if (domain === "approval") {

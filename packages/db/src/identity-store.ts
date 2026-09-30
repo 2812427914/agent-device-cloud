@@ -145,7 +145,14 @@ export class IdentityStore {
       `INSERT INTO adc_owner_pats
        (pat_id, account_id, label, read_only, token_hash, created_at, expires_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), $6) RETURNING *`,
-      [`pat_${randomBytes(16).toString("hex")}`, accountId, label, readOnly, hashToken(token), expiresAt]
+      [
+        `pat_${randomBytes(16).toString("hex")}`,
+        accountId,
+        label,
+        readOnly,
+        hashToken(token),
+        expiresAt
+      ]
     );
     return { pat: ownerPat(result.rows[0]!), token };
   }

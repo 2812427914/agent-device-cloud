@@ -18,8 +18,8 @@ import { AdcClient } from "@adc/client";
 
 const client = new AdcClient(
   "https://devices.example.com",
-  process.env.ADC_ACCESS_KEY!,            // Agent access key or owner PAT
-  fetch                                    // optional, defaults to global fetch
+  process.env.ADC_ACCESS_KEY!, // Agent access key or owner PAT
+  fetch // optional, defaults to global fetch
 );
 
 // Agent scope: one call returns grant + authorized nodes (with root paths

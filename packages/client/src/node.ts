@@ -5,10 +5,9 @@ import {
   ResultSchema,
   type CapabilityAdvertisement,
   type InvocationResult,
-  type NodePlatform,
-  type ToolCapability
+  type NodePlatform
 } from "@adc/protocol";
-import { AdcClientError, type NodeDispatch, type NodePollResponse } from "./index.ts";
+import { AdcClientError, type NodePollResponse } from "./index.ts";
 
 export { AdcClientError } from "./index.ts";
 export type { NodeDispatch, NodePollResponse } from "./index.ts";

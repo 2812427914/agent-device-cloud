@@ -227,7 +227,11 @@ export function registerResourceManagement(
     const updated = await store.updateNode(
       node.accountId,
       node.nodeId,
-      { label: body.label, ...(body.description === undefined ? {} : { description: body.description }), accessPolicy: policy },
+      {
+        label: body.label,
+        ...(body.description === undefined ? {} : { description: body.description }),
+        accessPolicy: policy
+      },
       body.revision,
       audit(request, "node.updated", {
         nodeId: node.nodeId,
