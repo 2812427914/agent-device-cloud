@@ -119,6 +119,18 @@ export interface OAuthConnection {
   revokedAt: string | null;
 }
 
+/** Owner-level personal access token for headless management clients. */
+export interface OwnerPat {
+  patId: string;
+  accountId: string;
+  label: string;
+  readOnly: boolean;
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
 export interface Project {
   projectId: string;
   accountId: string;
@@ -467,6 +479,29 @@ export class AdcClient {
 
   async revokeConnection(credentialId: string): Promise<{ revoked: true }> {
     return (await this.request(`/api/v1/credentials/${encodeURIComponent(credentialId)}/revoke`, {
+      method: "POST",
+      body: "{}"
+    })) as { revoked: true };
+  }
+
+  async listPats(): Promise<OwnerPat[]> {
+    const response = (await this.request("/api/v1/pats")) as { pats: OwnerPat[] };
+    return response.pats;
+  }
+
+  async createPat(input: {
+    label: string;
+    readOnly?: boolean;
+    expiresInDays?: number;
+  }): Promise<{ pat: OwnerPat; token: string }> {
+    return (await this.request("/api/v1/pats", {
+      method: "POST",
+      body: JSON.stringify({ readOnly: false, ...input })
+    })) as { pat: OwnerPat; token: string };
+  }
+
+  async revokePat(patId: string): Promise<{ revoked: true }> {
+    return (await this.request(`/api/v1/pats/${encodeURIComponent(patId)}/revoke`, {
       method: "POST",
       body: "{}"
     })) as { revoked: true };

@@ -358,8 +358,22 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
 
   async function requireOwner(request: FastifyRequest, reply: FastifyReply) {
     await requireAuthenticated(request, reply);
-    if (!reply.sent && principals.get(request)?.kind !== "session") {
+    const principal = principals.get(request);
+    if (reply.sent || !principal) return;
+    if (principal.kind !== "session" && principal.kind !== "pat") {
       return apiError(reply, 403, ErrorCodes.DENIED, "Account management requires a user session.");
+    }
+    if (
+      principal.kind === "pat" &&
+      principal.readOnly &&
+      !["GET", "HEAD", "OPTIONS"].includes(request.method)
+    ) {
+      return apiError(
+        reply,
+        403,
+        ErrorCodes.DENIED,
+        "This personal access token is read-only."
+      );
     }
   }
 
@@ -1299,6 +1313,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       !!dispatch &&
       dispatch.invocation.accountId === principal.accountId &&
       (principal.kind === "session" ||
+        principal.kind === "pat" ||
         dispatch.invocation.authorization.grantId === principal.grantId)
     );
   }

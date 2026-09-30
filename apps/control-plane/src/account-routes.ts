@@ -34,6 +34,13 @@ export function registerAccountRoutes(
         user: actor.user,
         account: actor.account
       };
+    if (actor.kind === "pat")
+      return {
+        kind: "pat",
+        accountId: actor.accountId,
+        patId: actor.patId,
+        readOnly: actor.readOnly
+      };
     const grant = await store.getGrant(actor.grantId);
     if (!grant || grant.accountId !== actor.accountId || grant.revokedAt) {
       throw new ProtocolError("denied", "Agent authorization is unavailable.", false);
@@ -92,6 +99,52 @@ export function registerAccountRoutes(
       throw new ProtocolError("not_found", "Credential was not found.", false);
     }
     await audit(request, "credential.revoked", { credentialId });
+    return { revoked: true };
+  });
+
+  // PAT management stays session-only: a token can never mint or retire tokens.
+  const sessionOnly = (request: FastifyRequest) => {
+    const actor = principal(request);
+    if (actor.kind !== "session")
+      throw new ProtocolError("denied", "PAT management requires a user session.", false);
+    return actor;
+  };
+
+  app.get("/api/v1/pats", owner, async (request) => ({
+    pats: await identity.listPats(sessionOnly(request).accountId)
+  }));
+
+  app.post("/api/v1/pats", owner, async (request) => {
+    const actor = sessionOnly(request);
+    const body = z
+      .object({
+        label: z.string().trim().min(1).max(128),
+        readOnly: z.boolean().default(false),
+        expiresInDays: z.number().int().min(1).max(365).optional()
+      })
+      .strict()
+      .parse(request.body);
+    const result = await identity.createPat(
+      actor.accountId,
+      body.label,
+      body.readOnly,
+      body.expiresInDays ? new Date(Date.now() + body.expiresInDays * 86400_000) : null
+    );
+    await audit(request, "pat.created", {
+      patId: result.pat.patId,
+      label: body.label,
+      readOnly: body.readOnly
+    });
+    return result;
+  });
+
+  app.post("/api/v1/pats/:patId/revoke", owner, async (request) => {
+    const actor = sessionOnly(request);
+    const { patId } = z.object({ patId: z.string() }).parse(request.params);
+    if (!(await identity.revokePat(actor.accountId, patId))) {
+      throw new ProtocolError("not_found", "Token was not found.", false);
+    }
+    await audit(request, "pat.revoked", { patId });
     return { revoked: true };
   });
   app.post("/api/v1/oauth/bindings", owner, async (request) => {

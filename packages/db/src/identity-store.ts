@@ -19,6 +19,17 @@ export interface Credential {
   revokedAt: string | null;
 }
 
+export interface OwnerPat {
+  patId: string;
+  accountId: string;
+  label: string;
+  readOnly: boolean;
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
 export const hashToken = (token: string): string =>
   createHash("sha256").update(token).digest("hex");
 
@@ -30,6 +41,19 @@ function credential(row: Record<string, any>): Credential {
     name: row.name,
     createdAt: new Date(row.created_at).toISOString(),
     expiresAt: new Date(row.expires_at).toISOString(),
+    lastUsedAt: row.last_used_at ? new Date(row.last_used_at).toISOString() : null,
+    revokedAt: row.revoked_at ? new Date(row.revoked_at).toISOString() : null
+  };
+}
+
+function ownerPat(row: Record<string, any>): OwnerPat {
+  return {
+    patId: row.pat_id,
+    accountId: row.account_id,
+    label: row.label,
+    readOnly: !!row.read_only,
+    createdAt: new Date(row.created_at).toISOString(),
+    expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : null,
     lastUsedAt: row.last_used_at ? new Date(row.last_used_at).toISOString() : null,
     revokedAt: row.revoked_at ? new Date(row.revoked_at).toISOString() : null
   };
@@ -106,6 +130,51 @@ export class IdentityStore {
       `UPDATE adc_credentials SET revoked_at = COALESCE(revoked_at, NOW())
        WHERE account_id = $1 AND credential_id = $2`,
       [accountId, id]
+    );
+    return !!result.rowCount;
+  }
+
+  async createPat(
+    accountId: string,
+    label: string,
+    readOnly: boolean,
+    expiresAt: Date | null
+  ): Promise<{ pat: OwnerPat; token: string }> {
+    const token = `adc_pat_${randomBytes(32).toString("base64url")}`;
+    const result = await this.pool.query(
+      `INSERT INTO adc_owner_pats
+       (pat_id, account_id, label, read_only, token_hash, created_at, expires_at)
+       VALUES ($1, $2, $3, $4, $5, NOW(), $6) RETURNING *`,
+      [`pat_${randomBytes(16).toString("hex")}`, accountId, label, readOnly, hashToken(token), expiresAt]
+    );
+    return { pat: ownerPat(result.rows[0]!), token };
+  }
+
+  async authenticatePat(token: string): Promise<OwnerPat | undefined> {
+    if (!/^adc_pat_[A-Za-z0-9_-]{43}$/.test(token)) return;
+    const result = await this.pool.query(
+      `UPDATE adc_owner_pats SET last_used_at = NOW()
+       WHERE token_hash = $1 AND revoked_at IS NULL
+         AND (expires_at IS NULL OR expires_at > NOW())
+       RETURNING *`,
+      [hashToken(token)]
+    );
+    return result.rows[0] ? ownerPat(result.rows[0]) : undefined;
+  }
+
+  async listPats(accountId: string): Promise<OwnerPat[]> {
+    const result = await this.pool.query(
+      `SELECT * FROM adc_owner_pats WHERE account_id = $1 ORDER BY created_at DESC`,
+      [accountId]
+    );
+    return result.rows.map(ownerPat);
+  }
+
+  async revokePat(accountId: string, patId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE adc_owner_pats SET revoked_at = COALESCE(revoked_at, NOW())
+       WHERE account_id = $1 AND pat_id = $2`,
+      [accountId, patId]
     );
     return !!result.rowCount;
   }

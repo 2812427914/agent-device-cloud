@@ -17,7 +17,8 @@ export type Principal =
       user: { id: string; name: string; email: string };
       account: PersonalAccount;
     }
-  | { kind: "agent"; accountId: string; grantId: string; credentialId?: string; clientId?: string };
+  | { kind: "agent"; accountId: string; grantId: string; credentialId?: string; clientId?: string }
+  | { kind: "pat"; accountId: string; patId: string; readOnly: boolean };
 
 export interface AccessService {
   origin: string;
@@ -66,6 +67,17 @@ export function createAccessService(
       if (authorization !== undefined) {
         if (!authorization.startsWith("Bearer ")) return;
         const token = authorization.slice(7);
+        if (token.startsWith("adc_pat_")) {
+          const pat = await identity.authenticatePat(token);
+          return pat
+            ? {
+                kind: "pat",
+                accountId: pat.accountId,
+                patId: pat.patId,
+                readOnly: pat.readOnly
+              }
+            : undefined;
+        }
         if (token.startsWith("adc_oat_")) {
           let claims;
           try {

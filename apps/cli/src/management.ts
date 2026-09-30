@@ -55,6 +55,8 @@ export const managementUsage = `Account management:
   adc access revoke|remove ACCESS --yes
   adc connect ACCESS [--name NAME] [--expires DAYS]
   adc connection list | revoke CONNECTION --yes
+  adc pat create --label NAME [--read-only] [--expires DAYS]
+  adc pat list | revoke PAT --yes
   adc approval list | approve|deny APPROVAL
   adc project list | create --name NAME
   adc project roots PROJECT
@@ -68,7 +70,7 @@ export function isManagementCommand(
   flags: Flags
 ): boolean {
   if (!domain) return false;
-  if (["device", "access", "connect", "connection", "approval", "project"].includes(domain))
+  if (["device", "access", "connect", "connection", "pat", "approval", "project"].includes(domain))
     return true;
   if (domain === "audit") return true;
   return domain === "node" && (action === "pairing-code" || flags.has("session"));
@@ -690,6 +692,64 @@ export async function runManagementCommand(input: {
       };
     }
     return { handled: false };
+  }
+
+  if (domain === "pat") {
+    if (action === "create") {
+      const label = requiredFlag(flags, "label");
+      const expires = stringFlag(flags, "expires");
+      const created = await client.createPat({
+        label,
+        readOnly: flags.has("read-only"),
+        ...(expires ? { expiresInDays: positiveInteger(expires, 30, "expires") } : {})
+      });
+      return {
+        handled: true,
+        value: {
+          schemaVersion: "0.1",
+          pat: {
+            id: created.pat.patId,
+            label: created.pat.label,
+            readOnly: created.pat.readOnly,
+            expiresAt: created.pat.expiresAt
+          },
+          token: created.token
+        }
+      };
+    }
+    if (action === "list") {
+      const pats = await client.listPats();
+      return {
+        handled: true,
+        value: {
+          schemaVersion: "0.1",
+          pats: pats.map((pat) => ({
+            id: pat.patId,
+            label: pat.label,
+            readOnly: pat.readOnly,
+            createdAt: pat.createdAt,
+            expiresAt: pat.expiresAt,
+            lastUsedAt: pat.lastUsedAt,
+            status: pat.revokedAt ? "revoked" : "active"
+          }))
+        }
+      };
+    }
+    if (action === "revoke" || action === "remove") {
+      requireConfirmation(flags);
+      const selector = positionals[2];
+      if (!selector) throw new Error("token ID is required");
+      const pat = selectOne(
+        await client.listPats(),
+        selector,
+        (value) => value.patId,
+        (value) => value.label,
+        "PAT"
+      );
+      await client.revokePat(pat.patId);
+      return { handled: true, value: { schemaVersion: "0.1", revoked: true, id: pat.patId } };
+    }
+    throw new Error("usage: adc pat create --label NAME [--read-only] [--expires DAYS] | list | revoke PAT --yes");
   }
 
   if (domain === "approval") {
