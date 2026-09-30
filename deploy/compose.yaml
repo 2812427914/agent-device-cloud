@@ -39,6 +39,8 @@ services:
       ADC_ANALYTICS_DOMAIN: ${ADC_ANALYTICS_DOMAIN:-}
       # Only Caddy reaches the API on this private subnet. It replaces forwarded IP headers.
       ADC_TRUSTED_PROXIES: "172.29.74.0/24"
+      # Optional cross-origin API access for browser consumers (harness plugins).
+      ADC_CORS_ORIGINS: ${ADC_CORS_ORIGINS:-}
       ADC_CONSOLE_DIR: /app/apps/console/dist
       ADC_NODE_DOWNLOAD_URL: ${ADC_NODE_DOWNLOAD_URL:-}
       DATABASE_URL: postgresql://adc:${ADC_DATABASE_PASSWORD}@postgres:5432/adc

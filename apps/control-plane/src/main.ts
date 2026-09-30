@@ -5,6 +5,7 @@ import nodemailer from "nodemailer";
 import { createControlPlane } from "./app.ts";
 import { createAuthentication } from "./auth.ts";
 import { createAccessService } from "./access.ts";
+import { parseCorsOrigins } from "./cors.ts";
 
 const databaseURL = process.env.DATABASE_URL;
 const secret = process.env.ADC_AUTH_SECRET;
@@ -78,11 +79,13 @@ const authentication = createAuthentication({
       }
     : {})
 });
+const corsOrigins = parseCorsOrigins(process.env.ADC_CORS_ORIGINS);
 const app = await createControlPlane({
   store,
   access: createAccessService(authentication, new IdentityStore(store.pool)),
   logger: true,
   consoleDirectory,
+  ...(corsOrigins ? { corsOrigins } : {}),
   ...(analyticsScriptUrl && analyticsDomain
     ? {
         analytics: {

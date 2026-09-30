@@ -6,6 +6,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { Counter, Gauge, Registry, collectDefaultMetrics } from "prom-client";
 import { z } from "zod";
 import { verifyNodeRequest } from "@adc/client";
+import { registerCors } from "./cors.ts";
 import {
   type AgentGrantRecord,
   type ApprovalRecord,
@@ -71,7 +72,8 @@ export interface ControlPlaneOptions {
   consoleDirectory?: string;
   nodeDistribution?: NodeDistribution;
   trustProxy?: string[];
-  analytics?: HostedAnalyticsOptions;
+  /** Opt-in cross-origin origins for API consumers. See registerCors(). */
+  corsOrigins?: string[] | "*";  analytics?: HostedAnalyticsOptions;
 }
 
 function invocationPath(invocation: Invocation, node: NodeRecord | undefined): string | undefined {
@@ -270,6 +272,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       this.websocketServer.close(done);
     }
   });
+  if (options.corsOrigins) registerCors(app, { origins: options.corsOrigins });
   app.addHook("onSend", async (request, reply, payload) => {
     reply.header("x-content-type-options", "nosniff");
     reply.header("referrer-policy", "same-origin");
