@@ -315,7 +315,7 @@ planned, not implemented.
 flowchart LR
   subgraph Current
     PERSONAL["Personal accounts"]
-    MACLINUX["macOS / Linux Node"]
+    MACLINUX["macOS / Linux / Windows Node"]
     PROCESS["Restricted process / full trust"]
     POSTGRES["PostgreSQL dispatch + artifacts"]
     INTERFACES["MCP / CLI / Skill / SDK"]
@@ -331,7 +331,7 @@ flowchart LR
   subgraph Later
     CONTAINER["Linux container isolation"]
     TEAM["Teams / RBAC / SSO / SIEM"]
-    WINDOWS["Windows Node"]
+    MOBILE["Mobile capability nodes"]
     PLUGINS["Tool plugin ecosystem"]
   end
 

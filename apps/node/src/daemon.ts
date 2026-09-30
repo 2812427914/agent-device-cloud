@@ -5,11 +5,13 @@ import {
   ToolNameSchema,
   absolutePathForToolArgs,
   rootForAbsolutePath,
-  type CapabilityAdvertisement
+  type CapabilityAdvertisement,
+  type NodePlatform
 } from "@adc/protocol";
 import { ToolRuntime, type CommandTemplate, type LocalRoot } from "@adc/tool-runtime";
 import type { McpProviderConfig } from "./config.ts";
 import { McpProviderManager } from "./mcp-providers.ts";
+import { nodePlatform } from "./platform.ts";
 import { WakeLatch, WebSocketWakeSource, type NodeWakeSource } from "./wake.ts";
 
 const DEFAULT_MAX_CONCURRENCY = 6;
@@ -43,6 +45,7 @@ export interface NodeDaemonOptions {
   templates?: CommandTemplate[];
   stateDirectory: string;
   nodeVersion?: string;
+  platform?: NodePlatform;
   pollIntervalMs?: number;
   leaseRenewIntervalMs?: number;
   fetcher?: typeof fetch;
@@ -147,6 +150,7 @@ export class NodeDaemon {
   }
 
   capability(now = new Date()): CapabilityAdvertisement {
+    const platform = this.options.platform ?? nodePlatform();
     return CapabilitySchema.parse({
       schemaVersion: "0.1",
       nodeId: this.options.nodeId,
@@ -184,11 +188,11 @@ export class NodeDaemon {
       accessMode: this.access.accessMode ?? "selected",
       roots: this.access.roots.map((root) => ({
         rootId: root.rootId,
-        path: root.path,
+        ...(platform === "win32" ? {} : { path: root.path }),
         label: root.label ?? root.rootId,
         writable: root.writable
       })),
-      platform: process.platform,
+      platform,
       nodeVersion: this.options.nodeVersion ?? "0.1.0",
       advertisedAt: now.toISOString()
     });

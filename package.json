@@ -58,6 +58,7 @@
     "@vitejs/plugin-react": "^5.0.3",
     "esbuild": "^0.28.2",
     "eslint": "^9.36.0",
+    "fflate": "^0.8.3",
     "postgres-memory-server": "^0.3.0",
     "prettier": "^3.6.2",
     "tsx": "^4.20.5",

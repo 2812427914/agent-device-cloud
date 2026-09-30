@@ -189,7 +189,7 @@ adc invoke file.read --node node_example \\
             </p>
             <p className="hero-description">
               {t(
-                "Agents keep using MCP, CLI or SDK. ADC authorizes and routes each call; the selected Mac or Linux device runs the tool."
+                "Agents keep using MCP, CLI or SDK. ADC authorizes and routes each call; the selected Mac, Linux or Windows device runs the tool."
               )}
             </p>
             <div className="hero-actions">
@@ -582,7 +582,7 @@ adc invoke file.read --node node_example \\
               <h3>{t("A complete personal device loop")}</h3>
               <p>
                 {t(
-                  "Accounts, macOS/Linux connectors, local MCP Providers, scoped grants, approvals, audit, MCP OAuth, CLI, Skill and self-hosting."
+                  "Accounts, macOS/Linux/Windows connectors, local MCP Providers, scoped grants, approvals, audit, MCP OAuth, CLI, Skill and self-hosting."
                 )}
               </p>
             </article>

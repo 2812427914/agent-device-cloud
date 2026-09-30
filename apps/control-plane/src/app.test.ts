@@ -99,6 +99,20 @@ afterEach(async () => {
 });
 
 describe("control plane", () => {
+  it("accepts native Windows nodes", async () => {
+    const { owner, fetcher } = await fixture();
+    const pairing = await owner.createPairingCode();
+    const keys = generateNodeKeyPair();
+    await expect(
+      new NodeApiClient("http://adc.test", undefined, keys.privateKey, fetcher).pair({
+        code: pairing.code,
+        label: "test-windows",
+        platform: "win32",
+        publicKey: keys.publicKey
+      })
+    ).resolves.toMatchObject({ nodeId: expect.stringMatching(/^node_/) });
+  });
+
   it("pairs once, dispatches with a lease, accepts a terminal result and audits it", async () => {
     const { app, owner, node, paired, capability } = await fixture();
     await node.poll(capability);

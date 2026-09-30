@@ -4,6 +4,7 @@ import type {
   InvocationResult,
   PolicyDecision,
   Receipt,
+  NodePlatform,
   ToolId
 } from "@adc/protocol";
 
@@ -25,7 +26,7 @@ export interface NodeRecord {
   accountId: string;
   label: string;
   publicKey: string;
-  platform: "darwin" | "linux";
+  platform: NodePlatform;
   status: "active" | "revoked";
   accessPolicy?: NodeAccessPolicy;
   revision?: number;

@@ -111,11 +111,12 @@ resource metadata until a future retention policy removes it.
 - SIGTERM/SIGINT drains HTTP and closes PostgreSQL. Node shutdown cancels its active process and
   attempts to upload the durable terminal receipt. On reconnect, expired leases reconcile receipts.
 
-The downloadable client installs a user launchd/systemd service. Use `adc-node status`, `logs` and
-`restart` to inspect it; repeat the install command to upgrade while preserving identity and receipts.
-Linux operation across logout requires user lingering. The source `adc-node run` command still runs
-in the foreground. Keep its state directory on persistent local storage, mode 0700, with config and
-ledger files mode 0600. See [client distribution](node-distribution.md) for publishing downloads.
+The downloadable client installs user-level startup through launchd, systemd or Windows Task
+Scheduler. Use `adc-node status`, `logs` and `restart` to inspect it; repeat the install command to
+upgrade while preserving identity and receipts. Linux operation across logout requires user
+lingering. The source `adc-node run` command still runs in the foreground. Keep its state directory
+on persistent local storage; Unix config and ledger files use mode 0600. See
+[client distribution](node-distribution.md) for publishing downloads.
 
 ## Backup and restore
 

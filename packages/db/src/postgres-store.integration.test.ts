@@ -118,6 +118,28 @@ describe("PostgresStore", () => {
     await embedded?.stop();
   });
 
+  it("stores Windows nodes after the platform constraint migration", async () => {
+    await store.putPairingCode({
+      codeHash: "pair-windows",
+      accountId: "acct_primary",
+      expiresAt: new Date(Date.now() + 60_000).toISOString()
+    });
+    await expect(
+      store.pairNode({
+        codeHash: "pair-windows",
+        now: new Date(),
+        node: {
+          nodeId: "node_windows",
+          label: "windows-node",
+          publicKey: "windows-key",
+          platform: "win32",
+          status: "active",
+          createdAt: new Date().toISOString()
+        }
+      })
+    ).resolves.toMatchObject({ node: { platform: "win32" } });
+  });
+
   it("reports nodes replaced during same-label pairing", async () => {
     const now = new Date();
     await store.putPairingCode({

@@ -408,9 +408,11 @@ function Devices({ request, revision, refresh, onError }: PageProps) {
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string }>();
   const [installation, setInstallation] = useState<{
     installerUrl: string;
+    windowsInstallerUrl: string;
     downloadUrl: string;
     controlPlaneUrl: string;
   }>();
+  const [installPlatform, setInstallPlatform] = useState<"unix" | "windows" | "wsl">("unix");
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -465,10 +467,16 @@ function Devices({ request, revision, refresh, onError }: PageProps) {
     }
   };
   const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-  const command =
+  const powershellQuote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+  const unixCommand =
     pairing && installation
       ? `curl -fsSL ${quote(installation.installerUrl)} | sh -s -- --url ${quote(installation.controlPlaneUrl)} --download-url ${quote(installation.downloadUrl)} --code ${quote(pairing.code)}`
       : "";
+  const windowsCommand =
+    pairing && installation
+      ? `$p=Join-Path $env:TEMP ('adc-install-'+[guid]::NewGuid().ToString('N')+'.ps1'); Invoke-WebRequest -UseBasicParsing -Uri ${powershellQuote(installation.windowsInstallerUrl)} -OutFile $p; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p -Url ${powershellQuote(installation.controlPlaneUrl)} -DownloadUrl ${powershellQuote(installation.downloadUrl)} -Code ${powershellQuote(pairing.code)}; $ec=$LASTEXITCODE; Remove-Item $p -Force -ErrorAction SilentlyContinue; if($ec -ne 0){throw "ADC installer failed with exit code $ec"}`
+      : "";
+  const command = installPlatform === "windows" ? windowsCommand : unixCommand;
   const modes: Record<string, Message> = {
     none: "No access",
     selected: "Selected folders",
@@ -503,9 +511,34 @@ function Devices({ request, revision, refresh, onError }: PageProps) {
               <X size={16} />
             </button>
           </div>
+          <div className="install-platforms" role="group" aria-label={t("Device platform")}>
+            {(
+              [
+                ["unix", "macOS / Linux"],
+                ["windows", "Windows PowerShell"],
+                ["wsl", "WSL"]
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={installPlatform === value}
+                onClick={() => {
+                  setInstallPlatform(value);
+                  setCopied(false);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <p>
             {t(
-              "Run this command in a terminal on your Mac or Linux device. Choose access during setup, or leave folders for later."
+              installPlatform === "windows"
+                ? "Run this command in Windows PowerShell. No preinstalled curl, shell or Node.js is required."
+                : installPlatform === "wsl"
+                  ? "Run this command inside WSL to connect the Linux environment, not the Windows host."
+                  : "Run this command in a terminal on your Mac or Linux device. Choose access during setup, or leave folders for later."
             )}
           </p>
           <pre>
@@ -621,8 +654,12 @@ function Devices({ request, revision, refresh, onError }: PageProps) {
             </div>
             <h2>{node.label}</h2>
             <p className="hint">
-              {node.platform === "darwin" ? "macOS" : node.platform} ·{" "}
-              {node.capability?.nodeVersion ?? "—"}
+              {node.platform === "darwin"
+                ? "macOS"
+                : node.platform === "win32"
+                  ? "Windows"
+                  : node.platform}{" "}
+              · {node.capability?.nodeVersion ?? "—"}
             </p>
             <div className="device-scope">
               <strong>{t(modes[node.capability?.accessMode ?? "selected"]!)}</strong>

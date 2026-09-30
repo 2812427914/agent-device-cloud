@@ -87,17 +87,20 @@ unavailable. Do not use this HTTP override as a public deployment.
      --url https://devices.example.com --code 'PAIRING_CODE'
    ```
 
-   Supports macOS and glibc Linux, arm64/x64. The installer includes Node.js and both `adc` and
-   `adc-node`; no source checkout, npm or pnpm is needed. It asks for a device name and offers local
-   access choices: choose folders, home directory, full device trust, or decide later. A directory is
-   not required for pairing. It starts a user background service; the console updates automatically.
-   If `~/.local/bin` is not on PATH, follow the installer's printed shell-profile instruction.
+   On Windows 10/11 x64, select **Windows PowerShell** in the console. The generated command
+   downloads `install.ps1` with `Invoke-WebRequest`; curl, a Unix shell and Node.js are not required.
+   WSL remains a separate Linux node and uses the macOS/Linux command.
 
-   The Ed25519 private key stays in the device's mode-0600 `~/.config/adc/node.json`. Exposed
-   absolute paths are advertised to the control plane so authorization and audit reviews use the
-   same paths an Agent sees. The daemon reconnects with backoff after connection loss.
-   macOS starts the service at login; Linux uses `systemd --user`. Staying active across Linux logout
-   requires lingering; the installer reports when it is unavailable.
+   The installer includes Node.js and both `adc` and `adc-node`; no source checkout, npm or pnpm is
+   needed. It asks for a device name and offers local access choices: choose folders, home, full
+   trust, or decide later. A directory is not required for pairing. macOS uses launchd, Linux uses
+   `systemd --user`, and Windows uses a least-privilege current-user Scheduled Task. Windows
+   commands run in Windows PowerShell and Windows roots are addressed by `rootId`; `full` covers the
+   current user's system drive, not other drives or UNC shares.
+
+   The Ed25519 private key remains on the device. Unix stores it in the mode-0600
+   `~/.config/adc/node.json`; Windows stores it under `%LOCALAPPDATA%\AgentDeviceCloud\config`.
+   The daemon reconnects with backoff after connection loss.
 
 3. In **Agent access**, select devices and use all their exposed folders, or select specific folders.
    All-folder access explicitly includes folders you expose on those devices in the future.

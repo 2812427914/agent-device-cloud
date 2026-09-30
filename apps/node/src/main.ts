@@ -26,6 +26,7 @@ import {
   stopService,
   uninstall
 } from "./service.ts";
+import { nodePlatform } from "./platform.ts";
 
 const version = process.env.ADC_BUILD_VERSION ?? "0.1.0-dev";
 const usage = `Agent Device Cloud device ${version}
@@ -122,12 +123,16 @@ async function jsonFileOption<T>(
   try {
     const canonical = resolve(path);
     const metadata = await stat(canonical);
-    if (!metadata.isFile() || metadata.size > 1024 * 1024 || (metadata.mode & 0o077) !== 0) {
+    if (
+      !metadata.isFile() ||
+      metadata.size > 1024 * 1024 ||
+      (process.platform !== "win32" && (metadata.mode & 0o077) !== 0)
+    ) {
       throw new Error("unsafe file");
     }
     return JSON.parse(await readFile(canonical, "utf8")) as T;
   } catch {
-    throw new Error(`--${name} must reference a mode-0600 JSON file smaller than 1 MiB.`);
+    throw new Error(`--${name} must reference a private JSON file smaller than 1 MiB.`);
   }
 }
 
@@ -135,8 +140,8 @@ async function prompt(label: string, fallback: string): Promise<string> {
   let input: ReadStream;
   let output: WriteStream;
   try {
-    input = new ReadStream(openSync("/dev/tty", "r"));
-    output = new WriteStream(openSync("/dev/tty", "w"));
+    input = new ReadStream(openSync(process.platform === "win32" ? "CONIN$" : "/dev/tty", "r"));
+    output = new WriteStream(openSync(process.platform === "win32" ? "CONOUT$" : "/dev/tty", "w"));
   } catch {
     return fallback;
   }
@@ -193,7 +198,7 @@ async function pair(args: Map<string, string>, interactive: boolean): Promise<vo
   const paired = await client.pair({
     code,
     label,
-    platform: process.platform === "darwin" ? "darwin" : "linux",
+    platform: nodePlatform(),
     publicKey: keyPair.publicKey
   });
   await saveConfig(

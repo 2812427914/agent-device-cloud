@@ -35,6 +35,8 @@ export const DispatchIdSchema = z.string().regex(/^dsp_[a-z0-9][a-z0-9_-]{2,127}
 export const ApprovalIdSchema = z.string().regex(/^apr_[a-z0-9][a-z0-9_-]{2,127}$/);
 export const ReceiptIdSchema = z.string().regex(/^rcpt_[a-z0-9][a-z0-9_-]{2,127}$/);
 export const JobIdSchema = z.string().regex(/^job_[a-z0-9][a-z0-9_-]{2,127}$/);
+export const NodePlatformSchema = z.enum(["darwin", "linux", "win32"]);
+export type NodePlatform = z.infer<typeof NodePlatformSchema>;
 
 export const NodeWakeSignalSchema = z
   .object({
@@ -552,7 +554,7 @@ export const CapabilitySchema = z
         })
         .strict()
     ),
-    platform: z.enum(["darwin", "linux"]),
+    platform: NodePlatformSchema,
     accessMode: z.enum(["none", "selected", "home", "full"]).optional(),
     nodeVersion: z.string().min(1).max(64),
     advertisedAt: z.iso.datetime({ offset: true })

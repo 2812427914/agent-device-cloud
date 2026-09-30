@@ -12,14 +12,19 @@ curl -fsSL https://devices.example.com/install.sh | sh -s -- \
   --url https://devices.example.com --code 'PAIRING_CODE'
 ```
 
+On Windows 10/11 x64, select **Windows PowerShell** in the console. Its generated command downloads
+`install.ps1` with `Invoke-WebRequest` and runs it with the one-time code. It does not require curl,
+a Unix shell or a preinstalled Node.js. Selecting **WSL** installs the Linux connector inside WSL;
+that is a separate node and does not provide native Windows process or startup behavior.
+
 For unattended setup, add `--label my-device --access none|home|full`, or
 `--label my-device --root-path /absolute/workspace`. The default folder ID
 is `root_workspace`; `--root-id root_other` overrides it. `--read-only` prevents write/execution
-permissions on this folder. The private device key stays on the device; exposed physical paths are
-advertised to the control plane for authorization, approval and audit review. In **Agent access**,
-choose the device, use its exposed folders, and choose capabilities and approval policy. No project
-or duplicate physical path entry is required. All-folder grants include future folders;
-selected-folder grants do not expand automatically.
+permissions on this folder. The private device key stays on the device. Unix nodes advertise exposed
+physical paths for review; Windows nodes keep drive paths local and advertise stable root IDs and
+labels. In **Agent access**, choose the device, use its exposed folders, and choose capabilities and
+approval policy. No project or duplicate physical path entry is required. All-folder grants include
+future folders; selected-folder grants do not expand automatically.
 
 After the first installation, use `adc update --check` and `adc update`. The update command reads
 the saved release source, compares build IDs, downloads and verifies the current platform archive,
@@ -57,7 +62,8 @@ removing/downgrading access cancels affected running work.
 Updates preserve roots/access even if an old installation command contains stale directory flags.
 
 Local MCP Providers are managed with `adc-node mcp add|list|remove`. Stdio Providers receive
-arguments through `--args`; secrets must be loaded from a mode-0600 JSON file with `--env-file`.
+arguments through `--args`; secrets must be loaded from a private JSON file with `--env-file`
+(mode 0600 is enforced on Unix).
 Streamable HTTP Providers use `--http` and optional `--headers-file`, and require HTTPS except on
 loopback. Provider configuration and credentials remain local; only discovered tool contracts are
 advertised. Changes reload automatically.
@@ -80,6 +86,15 @@ required. Suspend pauses execution; after wake, the existing reconnect/lease pro
 Services inherit the installation terminal's PATH so locally installed development tools remain
 available. Re-run installation after changing that PATH.
 
+On Windows, programs install under `%LOCALAPPDATA%\Programs\AgentDeviceCloud`, launchers under
+`%LOCALAPPDATA%\AgentDeviceCloud\bin`, and identity/state under
+`%LOCALAPPDATA%\AgentDeviceCloud\config`. A current-user Scheduled Task starts the Connector at
+sign-in and restarts it after failure. Shell tools use Windows PowerShell, so templates and
+`shell.exec` commands must use PowerShell syntax. Wire-level file operations continue to use a
+`rootId` plus a `/`-separated relative path. UNC paths are rejected in this release. `access full`
+exposes the system drive containing the user's profile; add selected roots for additional local
+drives.
+
 `adc-node uninstall` removes its program and service and preserves `~/.config/adc/`, which also
 contains the CLI's separately scoped credentials. Revoke the device and unused Agent tokens in
 the console when retiring them. Stop any manually started foreground daemon before uninstalling.
@@ -88,7 +103,7 @@ are not the target of `current` and no old process is running.
 
 ## Publish on your own domain, CDN or GitHub Releases
 
-Build all four supported archives with a pinned official Node.js runtime:
+Build all five supported archives with a pinned official Node.js runtime:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -98,7 +113,9 @@ pnpm build:node --download-url https://downloads.example.com/adc/v0.1.0
 Upload the contents of `dist/node/` unchanged to that directory:
 
 - `install.sh`: generated installer with the download base URL and archive checksums embedded.
-- `adc-<version>-<platform>-<arch>-<digest>.tar.gz`: runtime, CLI, daemon and license notices.
+- `install.ps1`: generated Windows PowerShell installer.
+- `adc-<version>-<platform>-<arch>-<digest>.tar.gz`: macOS/Linux runtime and program payload.
+- `adc-<version>-win32-x64-<digest>.zip`: Windows runtime and program payload.
 - `manifest.json`: version, build ID, runtime, file names, sizes and SHA-256 values.
 - `SHA256SUMS`: archive checksums for manual verification.
 
@@ -124,11 +141,12 @@ Download URLs use HTTPS; loopback HTTP supports local development.
 
 Build only a selected platform for development with `--targets darwin-arm64`. `--out-dir PATH`
 chooses a separate build output directory. The full release uses `darwin-arm64`, `darwin-x64`,
-`linux-arm64` and `linux-x64`. Linux requires glibc; Alpine/musl and Windows are not supported.
-Minimum OS requirements follow the pinned Node.js 24 runtime (macOS 13.5+, glibc 2.28+).
+`linux-arm64`, `linux-x64` and `win32-x64`. Linux requires glibc; Alpine/musl is not supported.
+Minimum OS requirements follow the pinned Node.js 24 runtime (macOS 13.5+, glibc 2.28+, and
+Windows 10/11 x64).
 
 Official runtime URLs and SHA-256 values are committed in `deploy/node-runtime.json`. Update the
-version, all four hashes and release validation together when taking Node security updates.
+version, all five hashes and release validation together when taking Node security updates.
 Archive hashes verify integrity; HTTPS establishes the distribution origin. `adc update` is
 explicit and downloads the complete runtime-containing archive. Detached signatures, differential
 packages and unattended updates are not included.
@@ -137,14 +155,14 @@ packages and unattended updates are not included.
 
 `pnpm build:node` produces `dist/node`; the Control Plane serves:
 
-- `/install.sh` and `/downloads/node/install.sh`
+- `/install.sh`, `/install.ps1` and their `/downloads/node/` equivalents
 - `/downloads/node/manifest.json`
 - `/downloads/node/SHA256SUMS`
 - `/downloads/node/<archive-name>`
 
 Missing downloads return HTTP 404. No account session is required to download program files; pairing
 still requires a valid code. `ADC_NODE_RELEASE_DIR` changes the local serving directory. Docker builds
-all four archives into the image so the standard Compose installation has a working Pair device flow.
+all five archives into the image so the standard Compose installation has a working Pair device flow.
 
 For local use:
 
@@ -171,6 +189,9 @@ ADC_TEST_LAUNCHD=1 pnpm exec vitest run tests/install.e2e.test.ts
 
 It uses an isolated service file under the workspace and removes its launchd job on completion.
 Linux systemd runtime validation requires a Linux login session with an active user manager.
+Windows package generation is covered on every build, but native PowerShell installation, Task
+Scheduler lifecycle, NTFS path behavior and process-tree cancellation require a Windows 10/11 x64
+host. See [Windows node validation](windows-node.md) before marking a release Windows-certified.
 For isolated/manual foreground testing, set absolute `ADC_INSTALL_DIR`, `ADC_BIN_DIR` and
 `ADC_NODE_CONFIG` paths, pass `--no-service`, then run the installed `adc-node run`.
 `ADC_SERVICE_DIR` is available for isolated macOS service tests.

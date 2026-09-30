@@ -136,6 +136,7 @@ describe("released device installer over HTTP", () => {
       process.env
     );
     expect(build.code, build.stderr).toBe(0);
+    await writeFile(resolve(releases, "adc-0.1.0-win32-x64-0123456789abcdef.zip"), "zip fixture");
     const socket = createServer();
     await new Promise<void>((done) => socket.listen(0, "127.0.0.1", done));
     const address = socket.address();
@@ -194,8 +195,20 @@ describe("released device installer over HTTP", () => {
     const response = await fetch(`${origin}/api/v1/node-installation`, { headers: { cookie } });
     expect(await response.json()).toMatchObject({
       available: true,
-      installerUrl: `${origin}/downloads/node/install.sh`
+      installerUrl: `${origin}/downloads/node/install.sh`,
+      windowsInstallerUrl: `${origin}/downloads/node/install.ps1`
     });
+    const windowsInstaller = await fetch(`${origin}/install.ps1`);
+    expect(windowsInstaller.status).toBe(200);
+    const windowsInstallerSource = await windowsInstaller.text();
+    expect(windowsInstallerSource).toContain("Expand-Archive");
+    expect(windowsInstallerSource).toContain("REM ADC managed launcher");
+    expect(windowsInstallerSource).not.toContain("@ADC_");
+    const windowsArchive = await fetch(
+      `${origin}/downloads/node/adc-0.1.0-win32-x64-0123456789abcdef.zip`
+    );
+    expect(windowsArchive.status).toBe(200);
+    expect(windowsArchive.headers.get("content-type")).toContain("application/zip");
     expect((await fetch(`${origin}/downloads/node/missing.tar.gz`)).status).toBe(404);
     const rootPath = resolve(directory, "user ' $literal & spaces/workspace");
     await mkdir(resolve(env.ADC_INSTALL_DIR!, ".install-lock"), { recursive: true });

@@ -12,6 +12,7 @@ import {
   type CapabilityAdvertisement,
   type Invocation,
   type InvocationResult,
+  type NodePlatform,
   type PolicyDecision,
   type ToolCapability,
   type ToolId
@@ -64,7 +65,7 @@ export interface ManagedNode {
   nodeId: string;
   accountId: string;
   label: string;
-  platform: "darwin" | "linux";
+  platform: NodePlatform;
   status: "active" | "revoked";
   accessPolicy?: NodeAccessPolicy;
   revision?: number;
@@ -167,6 +168,7 @@ export interface NodeInstallation {
   controlPlaneUrl?: string;
   downloadUrl?: string;
   installerUrl?: string;
+  windowsInstallerUrl?: string;
 }
 
 export function defaultTarget(context: InvocationContext, tool?: string): Invocation["target"] {
@@ -585,7 +587,7 @@ export class NodeApiClient {
   async pair(input: {
     code: string;
     label: string;
-    platform: "darwin" | "linux";
+    platform: NodePlatform;
     publicKey: string;
   }): Promise<PairedNode> {
     const response = await this.fetcher(`${this.baseUrl}/api/v1/nodes/pair`, {

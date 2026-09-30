@@ -13,6 +13,7 @@ import {
 } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { build } from "esbuild";
+import { unzipSync, zipSync, type Zippable } from "fflate";
 
 const root = resolve(import.meta.dirname, "..");
 let output = resolve(root, "dist/node");
@@ -57,6 +58,22 @@ await mkdir(cache, { recursive: true });
 const staging = await mkdtemp(resolve(root, ".adc/node-build-"));
 const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+const powershellQuote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+const archiveTimestamp = new Date("2000-01-01T00:00:00.000Z");
+
+async function zipEntries(directory: string, parts: string[] = []): Promise<Zippable> {
+  const entries: Zippable = {};
+  for (const name of await readdir(resolve(directory, ...parts))) {
+    const next = [...parts, name];
+    const path = resolve(directory, ...next);
+    if ((await stat(path)).isDirectory()) {
+      Object.assign(entries, await zipEntries(directory, next));
+    } else {
+      entries[next.join("/")] = [new Uint8Array(await readFile(path)), { mtime: archiveTimestamp }];
+    }
+  }
+  return entries;
+}
 
 try {
   const bundled = await build({
@@ -126,6 +143,7 @@ try {
     buildHash.update(await readFile(resolve(staging, "lib", name)));
   }
   buildHash.update(await readFile(resolve(root, "deploy/install.sh")));
+  buildHash.update(await readFile(resolve(root, "deploy/install.ps1")));
   const buildId = `sha256:${buildHash.digest("hex")}`;
   await writeFile(
     resolve(staging, "release.json"),
@@ -155,17 +173,26 @@ try {
       await rename(temporary, cached);
     }
     const payload = resolve(staging, target);
-    await mkdir(resolve(payload, "runtime"), { recursive: true });
-    const prefix = source.file.replace(/\.tar\.gz$/, "");
-    execFileSync("tar", [
-      "-xzf",
-      cached,
-      "-C",
-      resolve(payload, "runtime"),
-      "--strip-components=1",
-      `${prefix}/bin/node`,
-      `${prefix}/LICENSE`
-    ]);
+    await mkdir(resolve(payload, "runtime", "bin"), { recursive: true });
+    const prefix = source.file.replace(/\.(?:tar\.gz|zip)$/, "");
+    if (source.file.endsWith(".zip")) {
+      const extracted = unzipSync(new Uint8Array(await readFile(cached)));
+      const node = extracted[`${prefix}/node.exe`];
+      const license = extracted[`${prefix}/LICENSE`];
+      if (!node || !license) throw new Error(`Runtime archive is incomplete: ${target}`);
+      await writeFile(resolve(payload, "runtime/bin/node.exe"), node);
+      await writeFile(resolve(payload, "runtime/LICENSE"), license);
+    } else {
+      execFileSync("tar", [
+        "-xzf",
+        cached,
+        "-C",
+        resolve(payload, "runtime"),
+        "--strip-components=1",
+        `${prefix}/bin/node`,
+        `${prefix}/LICENSE`
+      ]);
+    }
     await cp(resolve(staging, "lib"), resolve(payload, "lib"), { recursive: true });
     await cp(licenseDirectory, resolve(payload, "licenses"), { recursive: true });
     await cp(resolve(payload, "runtime/LICENSE"), resolve(payload, "licenses/Node-LICENSE"));
@@ -174,12 +201,17 @@ try {
       resolve(payload, "THIRD-PARTY-NOTICES.txt")
     );
     await cp(resolve(staging, "release.json"), resolve(payload, "release.json"));
-    const temporary = resolve(staging, `${target}.tar.gz`);
-    execFileSync("tar", ["-czf", temporary, "-C", payload, "."], {
-      env: { ...process.env, COPYFILE_DISABLE: "1" }
-    });
+    const extension = target.startsWith("win32-") ? "zip" : "tar.gz";
+    const temporary = resolve(staging, `${target}.${extension}`);
+    if (extension === "zip") {
+      await writeFile(temporary, zipSync(await zipEntries(payload), { level: 9 }));
+    } else {
+      execFileSync("tar", ["-czf", temporary, "-C", payload, "."], {
+        env: { ...process.env, COPYFILE_DISABLE: "1" }
+      });
+    }
     const sha256 = digest(await readFile(temporary));
-    const file = `adc-${version}-${target}-${sha256.slice(0, 16)}.tar.gz`;
+    const file = `adc-${version}-${target}-${sha256.slice(0, 16)}.${extension}`;
     archives[target] = { file, sha256, bytes: (await stat(temporary)).size };
     await rename(temporary, resolve(output, file));
     console.log(`Built ${file}`);
@@ -194,6 +226,18 @@ try {
       )
       .join("\n")
   );
+  const windowsTemplate = await readFile(resolve(root, "deploy/install.ps1"), "utf8");
+  const windowsInstaller = windowsTemplate
+    .replace("@ADC_DOWNLOAD_URL@", powershellQuote(downloadURL))
+    .replace(
+      "@ADC_ARCHIVES@",
+      Object.entries(archives)
+        .map(
+          ([target, archive]) =>
+            `  ${powershellQuote(target)} = @{ File = ${powershellQuote(archive.file)}; Sha256 = ${powershellQuote(archive.sha256)} }`
+        )
+        .join("\n")
+    );
   // Publish the installer last; keep prior content-addressed archives usable for cached scripts.
   await writeFile(
     resolve(output, "manifest.json"),
@@ -208,6 +252,9 @@ try {
   const nextInstaller = resolve(output, ".install.sh.next");
   await writeFile(nextInstaller, installer, { mode: 0o755 });
   await rename(nextInstaller, resolve(output, "install.sh"));
+  const nextWindowsInstaller = resolve(output, ".install.ps1.next");
+  await writeFile(nextWindowsInstaller, windowsInstaller);
+  await rename(nextWindowsInstaller, resolve(output, "install.ps1"));
   console.log(`Ready to publish: ${output}`);
 } finally {
   await rm(staging, { recursive: true, force: true });

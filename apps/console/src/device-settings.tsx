@@ -35,10 +35,15 @@ export function DeviceSettings({
   const [folder, setFolder] = useState(""),
     [copied, setCopied] = useState(false);
   const roots = node.capability?.roots ?? [];
-  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+  const quote = (value: string) =>
+    node.platform === "win32"
+      ? `'${value.replaceAll("'", "''")}'`
+      : `'${value.replaceAll("'", "'\\''")}'`;
   const command = folder.trim()
     ? `adc-node roots add ${quote(folder.trim())}`
-    : 'adc-node roots add "$HOME/Desktop" --label Desktop';
+    : node.platform === "win32"
+      ? 'adc-node roots add "$HOME\\Desktop" --label Desktop'
+      : 'adc-node roots add "$HOME/Desktop" --label Desktop';
   useEffect(() => {
     let active = true;
     request("/api/v1/grants")
@@ -224,7 +229,7 @@ export function DeviceSettings({
           {t("Local folder path")}
           <input
             value={folder}
-            placeholder="/path/to/folder"
+            placeholder={node.platform === "win32" ? "C:\\path\\to\\folder" : "/path/to/folder"}
             onChange={(event) => {
               setFolder(event.target.value);
               setCopied(false);

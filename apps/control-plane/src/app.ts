@@ -22,6 +22,7 @@ import {
   ErrorCodes,
   InvocationIdSchema,
   InvocationSchema,
+  NodePlatformSchema,
   ProtocolError,
   ResultSchema,
   ToolIdSchema,
@@ -617,7 +618,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       .object({
         code: z.string().min(8).max(128),
         label: z.string().min(1).max(128),
-        platform: z.enum(["darwin", "linux"]),
+        platform: NodePlatformSchema,
         publicKey: z.string().min(64).max(8192)
       })
       .strict()

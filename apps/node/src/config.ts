@@ -1,7 +1,7 @@
 import { link, mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { basename, dirname, resolve } from "node:path";
+import { basename, dirname, isAbsolute, parse, resolve } from "node:path";
 import { z } from "zod";
 import { McpProviderIdSchema, RootIdSchema } from "@adc/protocol";
 
@@ -25,6 +25,17 @@ export const ControlPlaneUrlSchema = z
   }, "Use an HTTPS origin, or HTTP on loopback for local development.")
   .transform((value) => new URL(value).origin);
 
+function isUncPath(value: string): boolean {
+  return process.platform === "win32" && (value.startsWith("\\\\") || value.startsWith("//"));
+}
+
+export const LocalAbsolutePathSchema = z
+  .string()
+  .min(1)
+  .max(32_767)
+  .refine(isAbsolute, "Path must be absolute.")
+  .refine((value) => !isUncPath(value), "UNC and network paths are not supported.");
+
 const ProviderBaseSchema = z.object({
   providerId: McpProviderIdSchema,
   name: z.string().trim().min(1).max(128)
@@ -36,7 +47,7 @@ export const McpProviderConfigSchema = z.discriminatedUnion("transport", [
     command: z.string().min(1).max(4096),
     args: z.array(z.string().max(8192)).max(128).default([]),
     env: z.record(z.string().regex(/^[A-Z_][A-Z0-9_]*$/), z.string().max(32_768)).default({}),
-    cwd: z.string().startsWith("/").optional()
+    cwd: LocalAbsolutePathSchema.optional()
   }).strict(),
   ProviderBaseSchema.extend({
     transport: z.literal("http"),
@@ -87,7 +98,7 @@ export const ConfigSchema = z
         z
           .object({
             rootId: RootIdSchema,
-            path: z.string().startsWith("/"),
+            path: LocalAbsolutePathSchema,
             writable: z.boolean(),
             label: z.string().min(1).max(128).optional()
           })
@@ -140,6 +151,8 @@ export async function localFolder(
     writable?: boolean;
   } = {}
 ): Promise<NodeConfig["roots"][number]> {
+  LocalAbsolutePathSchema.parse(resolve(path));
+  if (isUncPath(path)) throw new Error("UNC and network paths are not supported.");
   const canonical = await realpath(resolve(path));
   if (!(await stat(canonical)).isDirectory())
     throw new Error("The selected root must be a folder.");
@@ -160,17 +173,21 @@ export async function accessRoots(
 ): Promise<NodeConfig["roots"]> {
   if (mode === "none") return [];
   if (mode === "selected") return selected;
+  const path = mode === "home" ? homedir() : parse(homedir()).root;
   return [
-    await localFolder(mode === "home" ? homedir() : "/", {
+    await localFolder(path, {
       rootId: mode === "home" ? "root_home" : "root_device",
-      label: mode === "home" ? "Home" : "All files",
+      label: mode === "home" ? "Home" : process.platform === "win32" ? "System drive" : "All files",
       writable
     })
   ];
 }
 
 export const configPath = resolve(
-  process.env.ADC_NODE_CONFIG ?? resolve(homedir(), ".config", "adc", "node.json")
+  process.env.ADC_NODE_CONFIG ??
+    (process.platform === "win32"
+      ? resolve(process.env.LOCALAPPDATA ?? homedir(), "AgentDeviceCloud", "config", "node.json")
+      : resolve(homedir(), ".config", "adc", "node.json"))
 );
 
 export async function loadConfig() {

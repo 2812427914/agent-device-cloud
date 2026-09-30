@@ -43,6 +43,7 @@ import {
   syncDirectory,
   type LocalRoot
 } from "./path-security.ts";
+import { shellInvocation, terminateProcessTree } from "./process.ts";
 import { ReceiptLedger } from "./receipt-ledger.ts";
 
 export interface CommandTemplate {
@@ -82,13 +83,22 @@ const dangerousCommandPatterns: Array<[RegExp, string]> = [
   [/(^|[\s;&|])sudo(?:\s|$)/, "shell.sudo"],
   [/(^|[\s;&|])(?:curl|wget|nc|ncat|ssh|scp|sftp)(?:\s|$)/, "shell.network"],
   [
+    /(^|[\s;&|])(?:invoke-webrequest|invoke-restmethod|start-bitstransfer)(?:\s|$)/i,
+    "shell.network"
+  ],
+  [
     /(^|[\s;&|])rm\s+(?:-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)\s+\/(?:\s|$)/,
     "shell.root_delete"
   ],
-  [/(^|[\s;&|])(?:launchctl|systemctl|shutdown|reboot)(?:\s|$)/, "shell.system_control"],
-  [/(^|[\s/])\.\.(?:\/|\s|$)/, "shell.parent_traversal"],
+  [
+    /(^|[\s;&|])(?:launchctl|systemctl|shutdown|reboot|schtasks|stop-computer|restart-computer|stop-service|set-service)(?:\.exe)?(?:\s|$)/i,
+    "shell.system_control"
+  ],
+  [/(^|[\s/\\])\.\.(?:[/\\]|\s|$)/, "shell.parent_traversal"],
   [/(^|[\s"'=])\/(?!dev\/null(?:\s|$))[^\s;&|]*/, "shell.absolute_path"],
-  [/(^|[\s;&|])(?:env|printenv|set)(?:\s|$)/, "shell.environment_dump"]
+  [/(^|[\s"'=])(?:[a-z]:[/\\]|\\\\)[^\s;&|]*/i, "shell.absolute_path"],
+  [/(^|[\s;&|])(?:env|printenv|set)(?:\s|$)/, "shell.environment_dump"],
+  [/(^|[\s;&|])(?:get-childitem|dir|ls)\s+env:/i, "shell.environment_dump"]
 ];
 
 function assertSafeGlob(pattern: string): void {
@@ -751,7 +761,7 @@ export class ToolRuntime {
       );
     }
     const reserved =
-      /^(?:PATH|HOME|TMPDIR|ENV|BASH_ENV|SHELLOPTS|BASHOPTS|CDPATH|IFS|ZDOTDIR|NODE_OPTIONS|PYTHONPATH|PYTHONHOME|PERL5OPT|RUBYOPT|LD_.*|DYLD_.*)$/;
+      /^(?:PATH|HOME|USERPROFILE|TMP|TEMP|TMPDIR|ENV|BASH_ENV|SHELLOPTS|BASHOPTS|CDPATH|IFS|ZDOTDIR|NODE_OPTIONS|PYTHONPATH|PYTHONHOME|PERL5OPT|RUBYOPT|COMSPEC|PATHEXT|PSMODULEPATH|APPDATA|LOCALAPPDATA|PROGRAMDATA|SYSTEMROOT|WINDIR|LD_.*|DYLD_.*)$/i;
     if (!this.fullTrust && Object.keys(invocationEnv).some((name) => reserved.test(name))) {
       throw new ProtocolError(
         ErrorCodes.DENIED,
@@ -764,9 +774,19 @@ export class ToolRuntime {
     await mkdir(tempRoot, { recursive: true, mode: 0o700 });
     const tempDirectory = await mkdtemp(resolve(tempRoot, "exec-"));
 
-    const child = spawn("/bin/bash", ["--noprofile", "--norc", "-c", command], {
+    const shell = shellInvocation(command);
+    const systemEnvironment =
+      process.platform === "win32"
+        ? Object.fromEntries(
+            ["SystemRoot", "WINDIR", "ComSpec", "PATHEXT"].flatMap((name) =>
+              process.env[name] ? [[name, process.env[name]!]] : []
+            )
+          )
+        : {};
+    const child = spawn(shell.executable, shell.args, {
       cwd,
-      detached: true,
+      detached: shell.detached,
+      windowsHide: true,
       env: this.fullTrust
         ? {
             ...process.env,
@@ -774,8 +794,16 @@ export class ToolRuntime {
             ...invocationEnv
           }
         : {
-            PATH: process.env.PATH ?? "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+            ...systemEnvironment,
+            PATH:
+              process.env.PATH ??
+              (process.platform === "win32"
+                ? ""
+                : "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"),
             HOME: cwd,
+            ...(process.platform === "win32"
+              ? { USERPROFILE: cwd, TEMP: tempDirectory, TMP: tempDirectory }
+              : {}),
             TMPDIR: tempDirectory,
             LANG: process.env.LANG ?? "C.UTF-8",
             CI: "1",
@@ -792,21 +820,17 @@ export class ToolRuntime {
     let timedOut = false;
     let cancelled = false;
     let killTimer: ReturnType<typeof setTimeout> | undefined;
+    let terminating = false;
     const terminate = () => {
-      if (!child.pid || killTimer) return;
-      try {
-        process.kill(-child.pid, "SIGTERM");
-      } catch {
-        child.kill("SIGTERM");
+      if (!child.pid || terminating) return;
+      terminating = true;
+      if (process.platform === "win32") {
+        terminateProcessTree(child, true);
+        return;
       }
+      terminateProcessTree(child, false);
       killTimer = setTimeout(() => {
-        if (child.pid) {
-          try {
-            process.kill(-child.pid, "SIGKILL");
-          } catch {
-            child.kill("SIGKILL");
-          }
-        }
+        terminateProcessTree(child, true);
       }, 1000).unref();
     };
     const collect = (target: Buffer[]) => (chunk: Buffer) => {

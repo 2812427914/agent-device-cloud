@@ -149,8 +149,8 @@ export const publicContent: PublicContentEntry[] = [
         title: text("Prepare one bounded workspace", "准备一个范围明确的工作目录"),
         paragraphs: [
           text(
-            "Start with one non-sensitive repository or test directory on a supported macOS or glibc Linux device. The installed Connector includes its runtime, but it needs permission to run a user service and write under the current user's configuration and local binary directories.",
-            "先在受支持的 macOS 或 glibc Linux 设备上选择一个不包含敏感数据的仓库或测试目录。安装后的 Connector 自带运行时，但需要启动用户级服务，以及写入当前用户配置目录与本地二进制目录的权限。"
+            "Start with one non-sensitive repository or test directory on a supported macOS, glibc Linux or Windows device. The installed Connector includes its runtime, but it needs permission to configure user-level startup and write to the current user's local application directories.",
+            "先在受支持的 macOS、glibc Linux 或 Windows 设备上选择一个不包含敏感数据的仓库或测试目录。安装后的 Connector 自带运行时，但需要配置用户级后台启动，以及写入当前用户本地应用目录的权限。"
           )
         ],
         bullets: [
@@ -170,8 +170,8 @@ export const publicContent: PublicContentEntry[] = [
         title: text("Pair the Connector", "配对 Connector"),
         paragraphs: [
           text(
-            "Sign in to the console, create a pairing code under Devices and run the generated command on the target machine. The code is short-lived and one-time. Pairing creates a local Ed25519 identity and starts launchd or systemd --user.",
-            "登录控制台，在「设备」中创建配对码，并在目标机器上运行生成的命令。配对码短时有效且只能使用一次。配对会创建本地 Ed25519 身份，并启动 launchd 或 systemd --user 服务。"
+            "Sign in to the console, select the target platform under Devices and run the generated command. The code is short-lived and one-time. Pairing creates a local Ed25519 identity and configures launchd, systemd --user or Windows Task Scheduler.",
+            "登录控制台，在「设备」中选择目标平台并运行生成的命令。配对码短时有效且只能使用一次。配对会创建本地 Ed25519 身份，并配置 launchd、systemd --user 或 Windows 任务计划程序。"
           )
         ],
         code: `curl -fsSL https://devices.example.com/install.sh | sh -s -- \\
@@ -651,8 +651,8 @@ adc_node_poll_total{outcome="dispatched|idle|denied"}`
         title: text("The scenario", "使用场景"),
         paragraphs: [
           text(
-            "A repository already builds on a developer Mac or Linux workstation. It has the right SDKs, caches, test data and local services. Recreating that environment in a cloud sandbox adds delay and often changes the behavior being investigated.",
-            "一个仓库已经可以在开发者的 Mac 或 Linux 工作站上构建。正确的 SDK、缓存、测试数据和本地服务都已就绪。把环境重新复制到云端沙箱既耗时，也可能改变正在排查的问题。"
+            "A repository already builds on a developer Mac, Linux or Windows workstation. It has the right SDKs, caches, test data and local services. Recreating that environment in a cloud sandbox adds delay and often changes the behavior being investigated.",
+            "一个仓库已经可以在开发者的 Mac、Linux 或 Windows 工作站上构建。正确的 SDK、缓存、测试数据和本地服务都已就绪。把环境重新复制到云端沙箱既耗时，也可能改变正在排查的问题。"
           )
         ]
       },

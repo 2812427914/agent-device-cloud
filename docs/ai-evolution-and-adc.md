@@ -290,9 +290,9 @@ METR 的时间跨度研究是有用的观察来源，但它测的是指定成功
 
 ## 7. 把 ADC 放回这段历史
 
-按当前仓库的[实现状态](./implementation-status.md)与[架构](./system-architecture.md)，ADC 已有账户与设备配对、授权、MCP／CLI／Skill 接口、macOS／Linux 文件和进程能力，以及任务派发、租约、回执与重连对账。
+按当前仓库的[实现状态](./implementation-status.md)与[架构](./system-architecture.md)，ADC 已有账户与设备配对、授权、MCP／CLI／Skill 接口、macOS／Linux／Windows 文件和进程能力，以及任务派发、租约、回执与重连对账。
 
-这些构成执行与设备接入基础。当前 ADC 已能在设备侧发现和转发任意 stdio／Streamable HTTP MCP Provider 工具，但不负责完整的 Agent 认知循环，也还没有硬件设备驱动生态、Windows Node、团队角色或计费。针对具体第三方 MCP 客户端的互通认证也尚未完成。
+这些构成执行与设备接入基础。当前 ADC 已能在设备侧发现和转发任意 stdio／Streamable HTTP MCP Provider 工具，但不负责完整的 Agent 认知循环，也还没有硬件设备驱动生态、团队角色或计费。Windows 原生客户端已经实现 MVP，但尚未完成 Windows 10/11 实机认证。针对具体第三方 MCP 客户端的互通认证也尚未完成。
 
 因此，当前讨论应把三个层次分开：
 

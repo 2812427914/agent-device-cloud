@@ -219,21 +219,21 @@ function Quickstart() {
       <Section id="requirements" title={t("Before you begin")}>
         <p>
           {t(
-            "The hosted preview requires an account and a supported macOS or glibc Linux device. Installed connectors include their own Node.js runtime; Node.js 22 is only required for source development."
+            "The hosted preview requires an account and a supported macOS, glibc Linux or Windows device. Installed connectors include their own Node.js runtime; Node.js 22 is only required for source development."
           )}
         </p>
         <ul className="docs-checklist">
           <li>{copy("A reachable HTTPS ADC deployment.", "一个可访问的 HTTPS ADC 部署。")}</li>
           <li>
             {copy(
-              "A macOS 13.5+ or glibc 2.28+ Linux device on arm64 or x64.",
-              "一台 arm64 或 x64 的 macOS 13.5+ 或 glibc 2.28+ Linux 设备。"
+              "A macOS 13.5+ or glibc 2.28+ Linux device on arm64/x64, or Windows 10/11 on x64.",
+              "一台 arm64/x64 的 macOS 13.5+ 或 glibc 2.28+ Linux 设备，或一台 x64 Windows 10/11 设备。"
             )}
           </li>
           <li>
             {copy(
-              "Permission to run a user service and write under ~/.config and ~/.local.",
-              "具备启动用户级服务以及写入 ~/.config 和 ~/.local 的权限。"
+              "Permission to run user-level startup and write to the current user's local application directories.",
+              "具备启动用户级后台任务以及写入当前用户本地应用目录的权限。"
             )}
           </li>
         </ul>
@@ -254,7 +254,7 @@ function Quickstart() {
             <h2>{t("Pair a device")}</h2>
             <p>
               {t(
-                "Open Devices, create a pairing code, and run the generated command on macOS or glibc Linux."
+                "Open Devices, select the target platform, create a pairing code, and run the generated command."
               )}
             </p>
           </div>
@@ -762,6 +762,12 @@ function Connector() {
         {`curl -fsSL https://devices.example.com/install.sh | sh -s -- \\
   --url https://devices.example.com --code 'PAIRING_CODE'`}
       </CodeBlock>
+      <CodeBlock label="Windows PowerShell">
+        {`$p=Join-Path $env:TEMP 'adc-install.ps1'
+Invoke-WebRequest -UseBasicParsing -Uri 'https://devices.example.com/install.ps1' -OutFile $p
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p \`
+  -Url 'https://devices.example.com' -Code 'PAIRING_CODE'`}
+      </CodeBlock>
       <Section id="pairing-sequence" title={copy("What pairing creates", "配对会创建什么")}>
         <ol className="docs-steps docs-steps-compact">
           <li>
@@ -794,8 +800,8 @@ function Connector() {
               <h2>{copy("Start the user service", "启动用户级服务")}</h2>
               <p>
                 {copy(
-                  "launchd on macOS or systemd --user on Linux keeps the outbound connection available after terminal exit.",
-                  "macOS 使用 launchd，Linux 使用 systemd --user，使终端退出后出站连接仍可运行。"
+                  "launchd on macOS, systemd --user on Linux or a current-user Scheduled Task on Windows keeps the outbound connection available after terminal exit.",
+                  "macOS 使用 launchd，Linux 使用 systemd --user，Windows 使用当前用户的计划任务，使终端退出后出站连接仍可运行。"
                 )}
               </p>
             </div>
@@ -820,7 +826,7 @@ function Connector() {
             <code>full</code>
             <span>
               {t(
-                "Full device trust exposes the filesystem using the connector user's OS permissions."
+                "Full device trust exposes the filesystem using the connector user's OS permissions. On Windows it covers the user's system drive."
               )}
             </span>
           </li>

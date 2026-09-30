@@ -130,7 +130,9 @@ export async function readResourceFile(
   const target = await resolveResourcePath(root, resourcePath, "read");
   const handle = await open(
     target,
-    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
+    process.platform === "win32"
+      ? constants.O_RDONLY
+      : constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
   );
   try {
     const metadata = await handle.stat();
@@ -171,6 +173,8 @@ export async function readResourceFile(
 }
 
 export async function syncDirectory(directory: string): Promise<void> {
+  // Windows does not expose portable directory fsync semantics through Node.
+  if (process.platform === "win32") return;
   const handle = await open(directory, constants.O_RDONLY | constants.O_DIRECTORY);
   try {
     await handle.sync();

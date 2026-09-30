@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
+import { windowsTaskDefinition } from "./service.ts";
 
 const temporaryDirectories: string[] = [];
 
@@ -80,4 +81,16 @@ exit 2
       ]);
     }
   );
+});
+
+describe("Windows task startup", () => {
+  it("defines a least-privilege logon task with restart behavior", () => {
+    const xml = windowsTaskDefinition("C:\\Users\\owner\\ADC & Tools\\node.cmd", "S-1-5-21-1234");
+    expect(xml).toContain("<LogonType>InteractiveToken</LogonType>");
+    expect(xml).toContain("<RunLevel>LeastPrivilege</RunLevel>");
+    expect(xml).toContain("<RestartOnFailure>");
+    expect(xml).toContain("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>");
+    expect(xml).toContain("ADC &amp; Tools");
+    expect(xml).toContain("<UserId>S-1-5-21-1234</UserId>");
+  });
 });

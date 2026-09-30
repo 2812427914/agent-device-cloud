@@ -146,6 +146,20 @@ describe("InvocationSchema", () => {
 });
 
 describe("CapabilitySchema", () => {
+  it("accepts a Windows capability without physical root paths", () => {
+    expect(
+      CapabilitySchema.parse({
+        schemaVersion: "0.1",
+        nodeId: "node_windows",
+        tools: [],
+        roots: [{ rootId: "root_workspace", label: "Workspace", writable: true }],
+        platform: "win32",
+        nodeVersion: "0.1.0",
+        advertisedAt: "2026-09-24T00:00:00.000Z"
+      })
+    ).toMatchObject({ platform: "win32" });
+  });
+
   it("accepts a dynamic MCP tool with its original object schema", () => {
     const capability = CapabilitySchema.parse({
       schemaVersion: "0.1",

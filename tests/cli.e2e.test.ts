@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -66,6 +66,10 @@ describe("public signup and CLI authentication over HTTP", () => {
   };
   beforeAll(async () => {
     directory = await mkdtemp(resolve(tmpdir(), "adc-cli-"));
+    const releases = resolve(directory, "releases");
+    await mkdir(releases);
+    await writeFile(resolve(releases, "install.sh"), "#!/bin/sh\n");
+    await writeFile(resolve(releases, "install.ps1"), "# installer\n");
     const socket = createServer();
     await new Promise<void>((done) => socket.listen(0, "127.0.0.1", done));
     const address = socket.address();
@@ -82,6 +86,7 @@ describe("public signup and CLI authentication over HTTP", () => {
     const store = new PostgresStore(postgres.getUri());
     app = await createControlPlane({
       store,
+      nodeDistribution: { directory: releases, publicUrl: origin },
       access: createAccessService(
         createAuthentication({
           pool: store.pool,
@@ -166,6 +171,24 @@ describe("public signup and CLI authentication over HTTP", () => {
       schemaVersion: "0.1",
       installCommand: expect.stringContaining("--label 'CLI Mac'")
     });
+    const windowsPair = await command([
+      "device",
+      "add",
+      "--name",
+      "CLI Windows",
+      "--platform",
+      "windows",
+      "--json"
+    ]);
+    expect(windowsPair.code, windowsPair.stderr).toBe(0);
+    const windowsInstall = JSON.parse(windowsPair.stdout);
+    expect(windowsInstall).toMatchObject({
+      schemaVersion: "0.1",
+      platform: "windows",
+      installCommand: expect.stringContaining("Invoke-WebRequest")
+    });
+    expect(windowsInstall.installCommand).toContain("install.ps1");
+    expect(windowsInstall.installCommand).not.toContain("curl");
     const pairing = await command(["node", "pairing-code", "--json"]);
     const keys = generateNodeKeyPair();
     const paired = await new NodeApiClient(origin, undefined, keys.privateKey).pair({

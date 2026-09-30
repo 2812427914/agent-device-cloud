@@ -37,7 +37,8 @@ const toolPresets: Record<string, ToolId[]> = {
 };
 
 export const managementUsage = `Account management:
-  adc device add [--name NAME] [--ttl SECONDS] [--access none|home|full]
+  adc device add [--name NAME] [--ttl SECONDS] [--platform unix|windows|wsl]
+                 [--access none|home|full]
   adc device list | show DEVICE
   adc device update DEVICE [--name NAME] [--folders all|none|LIST]
                     [--read-only none|LIST] [--execution on|off]
@@ -127,6 +128,10 @@ async function fileInput(flags: Flags): Promise<Record<string, unknown>> {
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function powershellQuote(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 function selectOne<T>(
@@ -408,6 +413,11 @@ export async function runManagementCommand(input: {
         positiveInteger(stringFlag(flags, "ttl"), 600, "ttl")
       );
       const installation = await client.nodeInstallation();
+      const platform = (
+        stringFlag(flags, "platform") ?? (process.platform === "win32" ? "windows" : "unix")
+      ).toLowerCase();
+      if (!["unix", "macos", "linux", "windows", "win32", "wsl"].includes(platform))
+        throw new Error("--platform must be unix, windows or wsl");
       const setupArgs = [
         `--url ${shellQuote(installation.controlPlaneUrl ?? url)}`,
         ...(installation.downloadUrl
@@ -424,13 +434,36 @@ export async function runManagementCommand(input: {
         ...(flags.has("read-only") ? ["--read-only"] : []),
         ...(flags.has("no-service") ? ["--no-service"] : [])
       ].join(" ");
-      const installCommand =
-        installation.available && installation.installerUrl
-          ? `curl -fsSL ${shellQuote(installation.installerUrl)} | sh -s -- ${setupArgs}`
-          : `adc-node setup ${setupArgs}`;
+      const windows = platform === "windows" || platform === "win32";
+      let installCommand: string;
+      if (windows && installation.available && installation.windowsInstallerUrl) {
+        const windowsArgs = [
+          `-Url ${powershellQuote(installation.controlPlaneUrl ?? url)}`,
+          ...(installation.downloadUrl
+            ? [`-DownloadUrl ${powershellQuote(installation.downloadUrl)}`]
+            : []),
+          `-Code ${powershellQuote(pairing.code)}`,
+          ...(stringFlag(flags, "name")
+            ? [`-Label ${powershellQuote(stringFlag(flags, "name")!)}`]
+            : []),
+          ...(stringFlag(flags, "access")
+            ? [`-Access ${powershellQuote(stringFlag(flags, "access")!)}`]
+            : []),
+          ...(stringFlag(flags, "root")
+            ? [`-RootPath ${powershellQuote(stringFlag(flags, "root")!)}`]
+            : []),
+          ...(flags.has("read-only") ? ["-ReadOnly"] : []),
+          ...(flags.has("no-service") ? ["-NoService"] : [])
+        ].join(" ");
+        installCommand = `$p=Join-Path $env:TEMP ('adc-install-'+[guid]::NewGuid().ToString('N')+'.ps1'); Invoke-WebRequest -UseBasicParsing -Uri ${powershellQuote(installation.windowsInstallerUrl)} -OutFile $p; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p ${windowsArgs}; $ec=$LASTEXITCODE; Remove-Item $p -Force -ErrorAction SilentlyContinue; if($ec -ne 0){throw "ADC installer failed with exit code $ec"}`;
+      } else if (!windows && installation.available && installation.installerUrl) {
+        installCommand = `curl -fsSL ${shellQuote(installation.installerUrl)} | sh -s -- ${setupArgs}`;
+      } else {
+        installCommand = `adc-node setup ${setupArgs}`;
+      }
       return {
         handled: true,
-        value: { schemaVersion: "0.1", expiresAt: pairing.expiresAt, installCommand }
+        value: { schemaVersion: "0.1", platform, expiresAt: pairing.expiresAt, installCommand }
       };
     }
     if (action === "list") {

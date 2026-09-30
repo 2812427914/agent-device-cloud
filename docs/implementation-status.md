@@ -60,22 +60,23 @@
 - Bounded console data access with aggregate Overview counts, batched project roots, cursor-paged
   approvals/activity, category filters and batch audit enrichment without per-row queries
 - `/app` Overview, Devices, optional Projects/Roots, Agent access, Approvals, Activity and Settings
-- 721 typed translations, persisted language preference, locale-aware dates and old-route compatibility
+- Typed translations, persisted language preference, locale-aware dates and old-route compatibility
 - Separate internal CLI login and scoped connection credentials; stdio MCP cannot inherit
   account-management access
 - Same-origin local startup, public HTTPS Compose and loopback override, health and protected metrics
-- Downloadable macOS/Linux arm64/x64 clients with bundled Node.js and dependency license notices
-- Conventional curl installer, integrity verification, persistent pairing, reinstall upgrades and
-  launchd stale-registration recovery
+- Downloadable macOS/Linux arm64/x64 and Windows x64 clients with bundled Node.js and dependency
+  license notices
+- Conventional curl and PowerShell installers, integrity verification, persistent pairing,
+  reinstall upgrades and launchd stale-registration recovery
 - Explicit `adc update --check` / `adc update` with build-ID comparison, saved release source,
   checksum verification, atomic activation and service-restart rollback
-- User launchd/systemd service generation and start/stop/restart/status/logs/uninstall commands
+- User launchd/systemd/Task Scheduler startup and start/stop/restart/status/logs/uninstall commands
 - Exact-ID-confirmed local unpair for replacing deleted devices while retaining durable receipts
 - Console installation command, separate CDN/release origin and automatic device presence refresh
 
 ## Verified
 
-- 136 passing tests across 30 files on Node.js 22; one opt-in macOS service test skipped (137 total)
+- 143 passing tests across 31 files on Node.js 22; one opt-in macOS service test skipped (144 total)
 - Real PostgreSQL migration, concurrent `SKIP LOCKED` claims and restart persistence
 - Pairing/replay/revoke behavior
 - Symlink escape, secret redaction, command denial, timeout/cancel and output limits
@@ -122,10 +123,12 @@ callback configuration. The hosted preview leaves password recovery, email verif
 login disabled until those integrations are supplied.
 
 The current sandbox rejects `launchctl` execution with EACCES, so the actual macOS service-manager
-test is opt-in (`ADC_TEST_LAUNCHD=1`) and was not passed here. macOS x64 and Linux arm64/x64 archives
-are built and checksummed; executing those Connector packages and their Linux systemd lifecycle
-remains to be verified on their respective hosts. Native database/installation suites run
-sequentially to prevent archive compression and PostgreSQL startup from starving short-lease tests.
+test is opt-in (`ADC_TEST_LAUNCHD=1`) and was not passed here. macOS x64, Linux arm64/x64 and
+Windows x64 archives are built and checksummed; executing those Connector packages and their
+Linux systemd or Windows Task Scheduler lifecycle remains to be verified on their respective hosts.
+Windows verification must also cover NTFS paths, PowerShell execution, sleep/wake recovery and
+process-tree cancellation. Native database/installation suites run sequentially to prevent archive
+compression and PostgreSQL startup from starving short-lease tests.
 
 ## Not implemented
 
@@ -136,7 +139,7 @@ sequentially to prevent archive compression and PostgreSQL startup from starving
 - Signed release packages, differential downloads and an unattended automatic updater
 - Automated backup/restore tooling and external penetration test (manual operations are documented)
 - Team roles, enterprise SSO/SCIM and billing
-- Windows Node
+- Windows ARM64, Windows Service mode, UNC roots and Job Object process containment
 
 These limits are common to both deployment forms. They do not create an unauthenticated self-hosted
 edition. See [ADR-0005](adr/0005-one-product-identity.md) and [deployment operations](deployment.md).

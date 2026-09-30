@@ -1,12 +1,12 @@
 import { spawn } from "node:child_process";
-import { readFile, realpath } from "node:fs/promises";
-import { homedir } from "node:os";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { basename, resolve } from "node:path";
 import { z } from "zod";
 
 const ArchiveSchema = z
   .object({
-    file: z.string().regex(/^adc-[a-zA-Z0-9._-]+\.tar\.gz$/),
+    file: z.string().regex(/^adc-[a-zA-Z0-9._-]+\.(?:tar\.gz|zip)$/),
     sha256: z.string().regex(/^[a-f0-9]{64}$/),
     bytes: z.number().int().positive()
   })
@@ -57,7 +57,13 @@ function updateURL(value: string): string {
 
 function target(): string {
   const platform =
-    process.platform === "darwin" ? "darwin" : process.platform === "linux" ? "linux" : "";
+    process.platform === "darwin"
+      ? "darwin"
+      : process.platform === "linux"
+        ? "linux"
+        : process.platform === "win32"
+          ? "win32"
+          : "";
   const architecture = process.arch === "arm64" ? "arm64" : process.arch === "x64" ? "x64" : "";
   if (!platform || !architecture)
     throw new Error(`Updates are unavailable for ${process.platform}-${process.arch}.`);
@@ -76,7 +82,11 @@ async function fetchText(url: string, label: string): Promise<string> {
 }
 
 async function nodeControlPlane(): Promise<string | undefined> {
-  const path = process.env.ADC_NODE_CONFIG ?? resolve(homedir(), ".config", "adc", "node.json");
+  const path =
+    process.env.ADC_NODE_CONFIG ??
+    (process.platform === "win32"
+      ? resolve(process.env.LOCALAPPDATA ?? homedir(), "AgentDeviceCloud", "config", "node.json")
+      : resolve(homedir(), ".config", "adc", "node.json"));
   try {
     return NodeSourceSchema.parse(JSON.parse(await readFile(path, "utf8"))).controlPlaneUrl;
   } catch {
@@ -88,16 +98,41 @@ async function runInstaller(
   script: string,
   options: { controlPlaneUrl?: string; downloadUrl: string; noService: boolean }
 ): Promise<void> {
-  const args = [
-    "-s",
-    "--",
-    "--download-url",
-    options.downloadUrl,
-    ...(options.controlPlaneUrl ? ["--url", options.controlPlaneUrl] : []),
-    ...(options.noService ? ["--no-service"] : [])
-  ];
-  const child = spawn("/bin/sh", args, {
+  let temporary: string | undefined;
+  let executable: string;
+  let args: string[];
+  if (process.platform === "win32") {
+    temporary = await mkdtemp(resolve(tmpdir(), "adc-update-"));
+    const installer = resolve(temporary, "install.ps1");
+    await writeFile(installer, script, "utf8");
+    executable = "powershell.exe";
+    args = [
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      installer,
+      "-DownloadUrl",
+      options.downloadUrl,
+      ...(options.controlPlaneUrl ? ["-Url", options.controlPlaneUrl] : []),
+      ...(options.noService ? ["-NoService"] : [])
+    ];
+  } else {
+    executable = "/bin/sh";
+    args = [
+      "-s",
+      "--",
+      "--download-url",
+      options.downloadUrl,
+      ...(options.controlPlaneUrl ? ["--url", options.controlPlaneUrl] : []),
+      ...(options.noService ? ["--no-service"] : [])
+    ];
+  }
+  const child = spawn(executable, args, {
     env: process.env,
+    windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"]
   });
   let diagnostics = "";
@@ -107,10 +142,12 @@ async function runInstaller(
   };
   child.stdout.on("data", relay);
   child.stderr.on("data", relay);
-  child.stdin.end(script);
+  child.stdin.end(process.platform === "win32" ? undefined : script);
   const status = await new Promise<number | null>((done, reject) => {
     child.once("error", reject);
     child.once("close", done);
+  }).finally(async () => {
+    if (temporary) await rm(temporary, { recursive: true, force: true });
   });
   if (status !== 0) {
     const detail = diagnostics.trim().split("\n").at(-1);
@@ -120,10 +157,25 @@ async function runInstaller(
   }
 }
 
+function releaseName(file: string): string {
+  return file.replace(/\.(?:tar\.gz|zip)$/, "");
+}
+
+async function currentReleaseDirectory(installDirectory: string): Promise<string> {
+  if (process.platform !== "win32") return realpath(resolve(installDirectory, "current"));
+  const current = (await readFile(resolve(installDirectory, "current.txt"), "utf8")).trim();
+  if (!current || basename(current) !== current)
+    throw new Error("ADC installation has an invalid current release pointer.");
+  return realpath(resolve(installDirectory, "releases", current));
+}
+
 export async function updateClient(options: UpdateOptions) {
   const installDirectory =
-    process.env.ADC_INSTALL_DIR ?? resolve(homedir(), ".local", "share", "agent-device-cloud");
-  const currentDirectory = await realpath(resolve(installDirectory, "current")).catch(() => {
+    process.env.ADC_INSTALL_DIR ??
+    (process.platform === "win32"
+      ? resolve(process.env.LOCALAPPDATA ?? homedir(), "Programs", "AgentDeviceCloud")
+      : resolve(homedir(), ".local", "share", "agent-device-cloud"));
+  const currentDirectory = await currentReleaseDirectory(installDirectory).catch(() => {
     throw new Error("ADC is not installed through the managed installer.");
   });
   const current = ReleaseSchema.parse(
@@ -143,7 +195,7 @@ export async function updateClient(options: UpdateOptions) {
   const platform = target();
   const archive = manifest.archives[platform];
   if (!archive) throw new Error(`The update does not contain ${platform}.`);
-  const expectedRelease = archive.file.replace(/\.tar\.gz$/, "");
+  const expectedRelease = releaseName(archive.file);
   const installedRelease = basename(currentDirectory);
   const updateAvailable =
     current.buildId && manifest.buildId
@@ -168,15 +220,21 @@ export async function updateClient(options: UpdateOptions) {
   };
   if (options.check || (!updateAvailable && !options.force)) return status;
 
-  const installer = await fetchText(`${downloadUrl}/install.sh`, "Installer");
-  if (!installer.startsWith("#!/bin/sh") || !installer.includes("# ADC managed launcher"))
+  const installerName = process.platform === "win32" ? "install.ps1" : "install.sh";
+  const installer = await fetchText(`${downloadUrl}/${installerName}`, "Installer");
+  if (
+    process.platform === "win32"
+      ? !installer.includes("# Generated release installer") ||
+        !installer.includes("REM ADC managed launcher")
+      : !installer.startsWith("#!/bin/sh") || !installer.includes("# ADC managed launcher")
+  )
     throw new Error("Downloaded installer is not an ADC installer.");
   await runInstaller(installer, {
     ...(controlPlaneUrl ? { controlPlaneUrl } : {}),
     downloadUrl,
     noService: options.noService
   });
-  const installedDirectory = await realpath(resolve(installDirectory, "current"));
+  const installedDirectory = await currentReleaseDirectory(installDirectory);
   const installed = ReleaseSchema.parse(
     JSON.parse(await readFile(resolve(installedDirectory, "release.json"), "utf8"))
   );

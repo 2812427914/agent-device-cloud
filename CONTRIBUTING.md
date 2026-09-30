@@ -60,6 +60,9 @@ pnpm audit --prod
 Integration tests start disposable PostgreSQL processes and may be slower than unit tests. Use
 Node.js 22 and `LANG=C LC_ALL=C` if the host locale prevents PostgreSQL initialization. Installation
 tests build platform archives; the launchd lifecycle check is opt-in with `ADC_TEST_LAUNCHD=1`.
+Windows changes also require the native checklist in
+[`docs/windows-node.md`](docs/windows-node.md); cross-building the ZIP does not certify Task
+Scheduler, NTFS or process behavior.
 
 ## Pull requests
 

@@ -90,6 +90,8 @@ export const zh = {
     "让任何 AI Agent 在你的控制下，使用设备上已有的文件、工具和环境。",
   "Agents keep using MCP, CLI or SDK. ADC authorizes and routes each call; the selected Mac or Linux device runs the tool.":
     "Agent 继续使用 MCP、CLI 或 SDK；ADC 负责授权和路由，由选定的 Mac 或 Linux 设备执行工具。",
+  "Agents keep using MCP, CLI or SDK. ADC authorizes and routes each call; the selected Mac, Linux or Windows device runs the tool.":
+    "Agent 继续使用 MCP、CLI 或 SDK；ADC 负责授权和路由，由选定的 Mac、Linux 或 Windows 设备执行工具。",
   "Connect a device": "连接设备",
   "Read the architecture": "了解架构",
   "View on GitHub": "在 GitHub 查看",
@@ -235,6 +237,8 @@ export const zh = {
   "A complete personal device loop": "完整的个人设备闭环",
   "Accounts, macOS/Linux connectors, local MCP Providers, scoped grants, approvals, audit, MCP OAuth, CLI, Skill and self-hosting.":
     "账户、macOS/Linux 连接器、本地 MCP Provider、范围授权、审批、审计、MCP OAuth、CLI、Skill 与自部署。",
+  "Accounts, macOS/Linux/Windows connectors, local MCP Providers, scoped grants, approvals, audit, MCP OAuth, CLI, Skill and self-hosting.":
+    "账户、macOS/Linux/Windows 连接器、本地 MCP Provider、范围授权、审批、审计、MCP OAuth、CLI、Skill 与自部署。",
   "Production hardening": "生产级加固",
   "Signed releases, automatic updates, keychain storage, quotas, retention and external artifact storage.":
     "签名发布、自动升级、安全密钥存储、配额、保留策略和外部产物存储。",
@@ -441,12 +445,16 @@ export const zh = {
     "源码开发需要 Node.js 22 或更高版本；安装版连接器已自带 Node.js 运行时。",
   "The hosted preview requires an account and a supported macOS or glibc Linux device. Installed connectors include their own Node.js runtime; Node.js 22 is only required for source development.":
     "使用托管预览只需要一个账户和受支持的 macOS 或 glibc Linux 设备。安装版连接器已自带 Node.js 运行时；只有源码开发需要 Node.js 22。",
+  "The hosted preview requires an account and a supported macOS, glibc Linux or Windows device. Installed connectors include their own Node.js runtime; Node.js 22 is only required for source development.":
+    "使用托管预览需要一个账户，以及受支持的 macOS、glibc Linux 或 Windows 设备。安装版连接器已自带 Node.js 运行时；只有源码开发需要 Node.js 22。",
   "Create an account": "创建账户",
   "Open the console and sign in with email or GitHub.": "打开控制台，通过邮箱或 GitHub 登录。",
   "Open the console and use one of the sign-in methods enabled by this deployment.":
     "打开控制台，并使用当前部署已启用的登录方式。",
   "Open Devices, create a pairing code, and run the generated command on macOS or glibc Linux.":
     "打开「设备」，生成配对码，然后在 macOS 或 glibc Linux 上运行生成的命令。",
+  "Open Devices, select the target platform, create a pairing code, and run the generated command.":
+    "打开「设备」，选择目标平台、生成配对码，然后运行生成的命令。",
   "Choose devices, folders, tools and an approval policy. Projects are optional.":
     "选择设备、目录、工具和审批策略；项目不是必选项。",
   "Connect a client": "连接客户端",
@@ -488,6 +496,8 @@ export const zh = {
   "Home directory exposes the connector user's home.": "用户主目录模式开放连接器用户的主目录。",
   "Full device trust exposes the filesystem using the connector user's OS permissions.":
     "完全信任模式使用连接器用户的系统权限开放文件系统。",
+  "Full device trust exposes the filesystem using the connector user's OS permissions. On Windows it covers the user's system drive.":
+    "完全信任模式使用连接器用户的系统权限开放文件系统；在 Windows 上覆盖用户所在的系统盘。",
   "Lifecycle commands": "生命周期命令",
   "Changes to access and folders reload automatically. Removing access cancels affected running work.":
     "访问模式和目录变更会自动加载；移除权限会取消受影响的运行任务。",
@@ -706,8 +716,13 @@ export const zh = {
   "Connect this device": "连接这台设备",
   "Expires {date}": "到期时间 {date}",
   Close: "关闭",
+  "Device platform": "设备平台",
   "Run this command in a terminal on your Mac or Linux device. Choose access during setup, or leave folders for later.":
     "在 Mac 或 Linux 设备的终端运行此命令。安装时可选择访问范围，也可以稍后再设置目录。",
+  "Run this command in Windows PowerShell. No preinstalled curl, shell or Node.js is required.":
+    "在 Windows PowerShell 中运行此命令，无需预装 curl、shell 或 Node.js。",
+  "Run this command inside WSL to connect the Linux environment, not the Windows host.":
+    "在 WSL 内运行此命令；连接的是 Linux 环境，而不是 Windows 主机。",
   "Installs the connector and starts it in the background. Your device will appear below automatically.":
     "安装连接器并在后台启动，设备会自动出现在下方。",
   "Device downloads are not available yet. Contact the installation administrator.":

@@ -1155,6 +1155,32 @@ legend {
   font-size: 12px;
   line-height: 1.8;
 }
+.install-platforms {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+.install-platforms button {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+}
+.install-platforms button:last-child {
+  border-right: 0;
+}
+.install-platforms button:hover {
+  color: var(--ink);
+}
+.install-platforms button[aria-pressed="true"] {
+  color: var(--ink);
+  box-shadow: inset 0 -2px var(--ink);
+}
 .install-card pre {
   background: white;
   border: 1px solid var(--line);
@@ -1386,6 +1412,14 @@ legend {
     width: 100%;
   }
   .filter-tabs button {
+    min-width: 0;
+    flex: 1;
+  }
+  .install-platforms {
+    display: flex;
+    width: 100%;
+  }
+  .install-platforms button {
     min-width: 0;
     flex: 1;
   }

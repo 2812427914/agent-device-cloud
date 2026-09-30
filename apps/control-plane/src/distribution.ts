@@ -32,10 +32,13 @@ export function distributionInfo(distribution?: NodeDistribution) {
   }
   return {
     available:
-      !!distribution.downloadUrl || existsSync(resolve(distribution.directory, "install.sh")),
+      !!distribution.downloadUrl ||
+      (existsSync(resolve(distribution.directory, "install.sh")) &&
+        existsSync(resolve(distribution.directory, "install.ps1"))),
     controlPlaneUrl,
     downloadUrl,
-    installerUrl: `${downloadUrl}/install.sh`
+    installerUrl: `${downloadUrl}/install.sh`,
+    windowsInstallerUrl: `${downloadUrl}/install.ps1`
   };
 }
 
@@ -43,8 +46,10 @@ export function registerDistributionRoutes(app: FastifyInstance, distribution?: 
   distributionInfo(distribution); // Validate configured URLs before accepting requests.
   async function serve(file: string, reply: FastifyReply) {
     const allowed =
-      ["install.sh", "manifest.json", "SHA256SUMS"].includes(file) ||
-      /^adc-[a-zA-Z0-9._-]+-(darwin|linux)-(arm64|x64)-[a-f0-9]{16}\.tar\.gz$/.test(file);
+      ["install.sh", "install.ps1", "manifest.json", "SHA256SUMS"].includes(file) ||
+      /^adc-[a-zA-Z0-9._-]+-(?:(?:darwin|linux)-(?:arm64|x64)|win32-x64)-[a-f0-9]{16}\.(?:tar\.gz|zip)$/.test(
+        file
+      );
     if (!distribution || !allowed)
       return reply.code(404).send({ error: "Release file not found." });
     const path = resolve(distribution.directory, file);
@@ -58,11 +63,15 @@ export function registerDistributionRoutes(app: FastifyInstance, distribution?: 
     }
     reply.header(
       "cache-control",
-      file.endsWith(".tar.gz") ? "public, max-age=31536000, immutable" : "no-cache"
+      file.endsWith(".tar.gz") || file.endsWith(".zip")
+        ? "public, max-age=31536000, immutable"
+        : "no-cache"
     );
     reply.type(
-      file.endsWith(".tar.gz")
-        ? "application/gzip"
+      file.endsWith(".tar.gz") || file.endsWith(".zip")
+        ? file.endsWith(".zip")
+          ? "application/zip"
+          : "application/gzip"
         : file.endsWith(".json")
           ? "application/json"
           : "text/plain; charset=utf-8"
@@ -70,6 +79,7 @@ export function registerDistributionRoutes(app: FastifyInstance, distribution?: 
     return reply.send(createReadStream(path));
   }
   app.get("/install.sh", async (_request, reply) => serve("install.sh", reply));
+  app.get("/install.ps1", async (_request, reply) => serve("install.ps1", reply));
   app.get(
     "/downloads/node/:file",
     async (request: FastifyRequest<{ Params: { file: string } }>, reply) =>

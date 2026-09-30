@@ -33,6 +33,22 @@ class TestWakeSource implements NodeWakeSource {
 }
 
 describe("NodeDaemon access reload", () => {
+  it("advertises Windows roots by stable ID without leaking drive paths", () => {
+    const daemon = new NodeDaemon({
+      controlPlaneUrl: "http://localhost:8787",
+      nodeId: "node_example",
+      privateKey: generateNodeKeyPair().privateKey,
+      roots: [{ rootId: "root_workspace", path: "C:\\workspace", writable: true, label: "Work" }],
+      stateDirectory: "C:\\state",
+      platform: "win32"
+    });
+    expect(daemon.capability()).toMatchObject({
+      platform: "win32",
+      roots: [{ rootId: "root_workspace", label: "Work", writable: true }]
+    });
+    expect(daemon.capability().roots[0]).not.toHaveProperty("path");
+  });
+
   it("continues refreshing Providers when local configuration is unchanged", async () => {
     const updateProviders = vi.fn().mockResolvedValue(undefined);
     const providers = {
