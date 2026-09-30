@@ -175,6 +175,7 @@ for name in adc adc-node; do
     printf 'export ADC_INSTALL_DIR='; quote "$install_dir"; printf '\n'
     printf 'export ADC_BIN_DIR='; quote "$bin_dir"; printf '\n'
     printf 'export ADC_UPDATE_URL='; quote "$download_url"; printf '\n'
+    printf 'export PATH="$ADC_INSTALL_DIR/current/runtime/bin${PATH:+:$PATH}"\n'
     if [ -n "$url" ]; then
       printf 'export ADC_CONTROL_PLANE_URL='; quote "$url"; printf '\n'
     fi

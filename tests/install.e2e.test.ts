@@ -225,6 +225,11 @@ describe("released device installer over HTTP", () => {
     expect(installed.code, `${installed.stderr}\n${installed.stdout}`).toBe(0);
     const original = await readFile(env.ADC_NODE_CONFIG!, "utf8");
     expect((await stat(env.ADC_NODE_CONFIG!)).mode & 0o777).toBe(0o600);
+    const runtimePathExport = 'export PATH="$ADC_INSTALL_DIR/current/runtime/bin${PATH:+:$PATH}"';
+    expect(await readFile(resolve(env.ADC_BIN_DIR!, "adc"), "utf8")).toContain(runtimePathExport);
+    expect(await readFile(resolve(env.ADC_BIN_DIR!, "adc-node"), "utf8")).toContain(
+      runtimePathExport
+    );
     expect((await node(["--version"])).stdout.trim()).toBe("0.1.0");
     expect((await cli(["--help"])).code).toBe(0);
     const updateCheck = await cli(["update", "--check", "--json"]);
@@ -273,10 +278,10 @@ describe("released device installer over HTTP", () => {
       await post("/api/v1/grants", {
         name: "Installed reader",
         projectId: project.projectId,
-        profile: "read-only",
+        profile: "workspace-write",
         nodeIds: [nodeId],
         rootIds: ["root_workspace"],
-        allowedTools: ["file.read", "task.result"]
+        allowedTools: ["file.read", "shell.exec", "task.result"]
       })
     ).value;
     const credential = (
@@ -311,11 +316,44 @@ describe("released device installer over HTTP", () => {
         status: "succeeded",
         output: { content: "Installed client reads this file.\n" }
       });
+    const versionCall = await cli([
+      "invoke",
+      "shell.exec",
+      "--node",
+      nodeId,
+      "--args",
+      JSON.stringify({ cwd: rootPath, command: "node --version", timeoutMs: 5_000 }),
+      "--idempotency-key",
+      "installer-bundled-node-version",
+      "--json"
+    ]);
+    expect(versionCall.code, versionCall.stderr).toBe(0);
+    const versionJob = JSON.parse(versionCall.stdout);
+    const bundledRuntime = JSON.parse(
+      await readFile(resolve(installedDirectory, "release.json"), "utf8")
+    ).runtime;
+    await expect
+      .poll(
+        async () => {
+          const result = await cli(["task", "result", versionJob.jobId, "--json"]);
+          expect(result.code, result.stderr).toBe(0);
+          return JSON.parse(result.stdout);
+        },
+        { timeout: 15_000 }
+      )
+      .toMatchObject({
+        status: "succeeded",
+        output: { stdout: `v${bundledRuntime}\n` }
+      });
     await stopDaemon();
     const upgraded = await cli(["update", "--force", "--no-service", "--json"]);
     expect(upgraded.code, upgraded.stderr).toBe(0);
     expect(JSON.parse(upgraded.stdout)).toMatchObject({ updated: true, updateAvailable: false });
     expect(await readFile(env.ADC_NODE_CONFIG!, "utf8")).toBe(original);
+    expect(await readFile(resolve(env.ADC_BIN_DIR!, "adc"), "utf8")).toContain(runtimePathExport);
+    expect(await readFile(resolve(env.ADC_BIN_DIR!, "adc-node"), "utf8")).toContain(
+      runtimePathExport
+    );
     expect(await getNodes()).toHaveLength(1);
     const current = await readlink(resolve(env.ADC_INSTALL_DIR!, "current"));
     corruptArchive = true;
