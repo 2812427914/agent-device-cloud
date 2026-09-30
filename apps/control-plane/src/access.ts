@@ -231,6 +231,13 @@ export function grantContext(grant: AgentGrantRecord, nodes: NodeRecord[] = []) 
     grantId: grant.grantId,
     ...(grant.projectId ? { projectId: grant.projectId } : {}),
     nodeIds: grant.nodeIds,
+    nodes: grantedNodes.map((node) => ({
+      nodeId: node.nodeId,
+      label: node.label,
+      ...(node.description ? { description: node.description } : {}),
+      platform: node.platform,
+      ...(node.lastSeenAt ? { lastSeenAt: node.lastSeenAt } : {})
+    })),
     allowedTools: grant.allowedTools,
     toolNodeIds,
     toolDefinitions,

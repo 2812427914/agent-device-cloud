@@ -40,7 +40,7 @@ export const managementUsage = `Account management:
   adc device add [--name NAME] [--ttl SECONDS] [--platform unix|windows|wsl]
                  [--access none|home|full]
   adc device list | show DEVICE
-  adc device update DEVICE [--name NAME] [--folders all|none|LIST]
+  adc device update DEVICE [--name NAME] [--description TEXT] [--folders all|none|LIST]
                     [--read-only none|LIST] [--execution on|off]
                     [--concurrency 1..32] [--file JSON]
   adc device wait DEVICE [--timeout SECONDS]
@@ -391,9 +391,14 @@ async function updateDevice(client: AdcClient, node: ManagedNode, flags: Flags) 
   const concurrency = stringFlag(flags, "concurrency");
   if (concurrency !== undefined) policy.maxConcurrency = nodeConcurrency(concurrency);
   if (policy.rootAccess === "all") policy.rootIds = [];
+  const description =
+    stringFlag(flags, "description") ??
+    (input.description as string | undefined) ??
+    node.description;
   return client.updateNode(node.nodeId, {
     revision: node.revision ?? 1,
     label: stringFlag(flags, "name") ?? (input.label as string | undefined) ?? node.label,
+    ...(description === undefined ? {} : { description }),
     accessPolicy: policy
   });
 }

@@ -76,6 +76,36 @@ describe("grantContext", () => {
     });
   });
 
+  it("exposes granted node metadata for harness inventories", () => {
+    const grant: AgentGrantRecord = {
+      grantId: "grant_example",
+      accountId: "acct_primary",
+      actorId: "actor_example",
+      profile: "workspace-write",
+      nodeIds: ["node_beta", "node_alpha"],
+      rootIds: [],
+      allowedTools: ["file.read"],
+      createdAt
+    };
+    const alpha = node("node_alpha", ["file.read"]);
+    alpha.description = "【MacBook Pro · 主力本机】M2 Pro / 32G";
+    const context = grantContext(grant, [
+      alpha,
+      node("node_beta", ["file.read"]),
+      node("node_ungranted", ["file.read"])
+    ]);
+    expect(context.nodes).toEqual([
+      expect.objectContaining({
+        nodeId: "node_alpha",
+        label: "node_alpha",
+        description: "【MacBook Pro · 主力本机】M2 Pro / 32G",
+        platform: "darwin"
+      }),
+      expect.objectContaining({ nodeId: "node_beta", label: "node_beta", platform: "darwin" })
+    ]);
+    expect(context.nodes.map((entry) => entry.nodeId)).not.toContain("node_ungranted");
+  });
+
   it("deduplicates the same custom tool definition while retaining all providers", () => {
     const tool = "mcp.github.search.1234abcd";
     const unique = "mcp.github.unique.87654321";

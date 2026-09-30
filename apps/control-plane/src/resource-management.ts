@@ -204,6 +204,7 @@ export function registerResourceManagement(
       .object({
         revision: z.number().int().min(1),
         label: z.string().trim().min(1).max(128),
+        description: z.string().trim().max(500).optional(),
         accessPolicy: NodeAccessPolicySchema
       })
       .strict()
@@ -226,13 +227,18 @@ export function registerResourceManagement(
     const updated = await store.updateNode(
       node.accountId,
       node.nodeId,
-      { label: body.label, accessPolicy: policy },
+      { label: body.label, ...(body.description === undefined ? {} : { description: body.description }), accessPolicy: policy },
       body.revision,
       audit(request, "node.updated", {
         nodeId: node.nodeId,
         label: body.label,
+        ...(body.description === undefined ? {} : { description: body.description }),
         accessPolicy: policy,
-        before: { label: node.label, accessPolicy: node.accessPolicy ?? null }
+        before: {
+          label: node.label,
+          description: node.description ?? null,
+          accessPolicy: node.accessPolicy ?? null
+        }
       })
     );
     options.wakeNode?.(node.nodeId);

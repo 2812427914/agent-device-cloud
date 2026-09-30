@@ -1,0 +1,2 @@
+ALTER TABLE adc_nodes
+  ADD COLUMN IF NOT EXISTS description text NOT NULL DEFAULT '';

@@ -43,6 +43,7 @@ function nodeFromRow(row: QueryResultRow): NodeRecord {
     nodeId: row.node_id,
     accountId: row.account_id,
     label: row.label,
+    ...(row.description ? { description: row.description } : {}),
     publicKey: row.public_key,
     platform: row.platform,
     status: row.status,
@@ -359,17 +360,28 @@ export class PostgresStore implements Store {
   async updateNode(
     accountId: string,
     nodeId: string,
-    changes: Pick<NodeRecord, "label" | "accessPolicy">,
+    changes: Pick<NodeRecord, "label" | "description" | "accessPolicy">,
     revision: number,
     audit: AuditEvent
   ): Promise<NodeRecord> {
     try {
       return await transaction(this.pool, async (client) => {
         const result = await client.query(
-          `UPDATE adc_nodes SET label = $3, access_policy = $4, revision = revision + 1
+          `UPDATE adc_nodes
+           SET label = $3,
+               description = COALESCE($6, description),
+               access_policy = $4,
+               revision = revision + 1
            WHERE account_id = $1 AND node_id = $2 AND revision = $5
              AND deleted_at IS NULL AND status = 'active' RETURNING *`,
-          [accountId, nodeId, changes.label, changes.accessPolicy ?? null, revision]
+          [
+            accountId,
+            nodeId,
+            changes.label,
+            changes.accessPolicy ?? null,
+            revision,
+            changes.description ?? null
+          ]
         );
         if (!result.rowCount)
           throw new ProtocolError("conflict", "Device changed. Refresh and try again.", false);

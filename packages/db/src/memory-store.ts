@@ -203,7 +203,7 @@ export class MemoryStore implements Store {
   async updateNode(
     accountId: string,
     nodeId: string,
-    changes: Pick<NodeRecord, "label" | "accessPolicy">,
+    changes: Pick<NodeRecord, "label" | "description" | "accessPolicy">,
     revision: number,
     audit: AuditEvent
   ): Promise<NodeRecord> {
@@ -226,7 +226,10 @@ export class MemoryStore implements Store {
       )
     )
       throw new ProtocolError("conflict", "A device with this name already exists.", false);
-    Object.assign(node, clone(changes), { revision: revision + 1 });
+    const patch: Partial<NodeRecord> = { label: changes.label };
+    if (changes.description !== undefined) patch.description = changes.description;
+    if (changes.accessPolicy !== undefined) patch.accessPolicy = changes.accessPolicy;
+    Object.assign(node, clone(patch), { revision: revision + 1 });
     this.audit.push(clone(audit));
     return clone(node);
   }

@@ -25,6 +25,8 @@ export interface NodeRecord {
   nodeId: string;
   accountId: string;
   label: string;
+  /** Free-form owner note shown to harness plugins and consoles. */
+  description?: string;
   publicKey: string;
   platform: NodePlatform;
   status: "active" | "revoked";

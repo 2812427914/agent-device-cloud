@@ -70,8 +70,12 @@ function joinVary(existing: unknown, value: string): string {
 }
 
 export function registerCors(app: FastifyInstance, options: CorsOptions): void {
+  const allowed = new Set(
+    options.origins === "*"
+      ? []
+      : options.origins.map((origin) => origin.toLowerCase())
+  );
   const allowAny = options.origins === "*";
-  const allowed = new Set(allowAny ? [] : options.origins.map((origin) => origin.toLowerCase()));
 
   const resolveOrigin = (request: FastifyRequest): string | undefined => {
     const header = request.headers.origin;

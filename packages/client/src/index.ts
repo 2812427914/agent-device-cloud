@@ -65,6 +65,8 @@ export interface ManagedNode {
   nodeId: string;
   accountId: string;
   label: string;
+  /** Free-form owner note shown to harness plugins and consoles. */
+  description?: string;
   platform: NodePlatform;
   status: "active" | "revoked";
   accessPolicy?: NodeAccessPolicy;
@@ -344,7 +346,12 @@ export class AdcClient {
 
   async updateNode(
     nodeId: string,
-    input: { revision: number; label: string; accessPolicy: NodeAccessPolicy }
+    input: {
+      revision: number;
+      label: string;
+      description?: string;
+      accessPolicy: NodeAccessPolicy;
+    }
   ): Promise<ManagedNode> {
     return (await this.request(`/api/v1/nodes/${encodeURIComponent(nodeId)}`, {
       method: "PATCH",
