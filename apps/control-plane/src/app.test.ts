@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import type { InjectOptions, LightMyRequestResponse } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
-import { AdcClient, NodeApiClient, generateNodeKeyPair, signNodeRequest } from "@adc/client";
+import { AdcClient } from "@adc/client";
+import { NodeApiClient, generateNodeKeyPair, signNodeRequest } from "@adc/client/node";
 import { MemoryStore } from "@adc/db";
 import {
   CapabilitySchema,

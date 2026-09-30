@@ -4,12 +4,8 @@ import { PostgresMemoryServer } from "postgres-memory-server";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { PostgresStore, IdentityStore, MemoryStore } from "../packages/db/src/index.ts";
-import {
-  AdcClient,
-  NodeApiClient,
-  buildInvocation,
-  generateNodeKeyPair
-} from "../packages/client/src/index.ts";
+import { AdcClient, buildInvocation } from "../packages/client/src/index.ts";
+import { NodeApiClient, generateNodeKeyPair } from "../packages/client/src/node.ts";
 import { CapabilitySchema, ReceiptSchema } from "../packages/protocol/src/index.ts";
 import { sha256 } from "../packages/policy/src/index.ts";
 import { createAuthentication } from "../apps/control-plane/src/auth.ts";

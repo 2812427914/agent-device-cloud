@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildInvocation, generateNodeKeyPair } from "@adc/client";
+import { buildInvocation } from "@adc/client";
+import { generateNodeKeyPair } from "@adc/client/node";
 import type { PolicyDecision } from "@adc/protocol";
 import { NodeDaemon } from "./daemon.ts";
 import type { McpProviderManager } from "./mcp-providers.ts";

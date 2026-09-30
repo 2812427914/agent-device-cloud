@@ -5,7 +5,7 @@ import fastifyWebsocket from "@fastify/websocket";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { Counter, Gauge, Registry, collectDefaultMetrics } from "prom-client";
 import { z } from "zod";
-import { verifyNodeRequest } from "@adc/client";
+import { verifyNodeRequest } from "@adc/client/node";
 import { registerCors } from "./cors.ts";
 import {
   type AgentGrantRecord,

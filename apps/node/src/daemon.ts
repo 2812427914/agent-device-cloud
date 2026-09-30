@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { AdcClientError, NodeApiClient, type NodeDispatch } from "@adc/client";
+import { AdcClientError, NodeApiClient, type NodeDispatch } from "@adc/client/node";
 import {
   CapabilitySchema,
   ToolNameSchema,

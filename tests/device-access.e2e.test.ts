@@ -3,12 +3,8 @@ import { promisify } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { describe, expect, it } from "vitest";
-import {
-  AdcClient,
-  NodeApiClient,
-  buildInvocation,
-  generateNodeKeyPair
-} from "../packages/client/src/index.ts";
+import { AdcClient, buildInvocation } from "../packages/client/src/index.ts";
+import { NodeApiClient, generateNodeKeyPair } from "../packages/client/src/node.ts";
 import { MemoryStore } from "../packages/db/src/index.ts";
 import { CapabilitySchema } from "../packages/protocol/src/index.ts";
 import { createControlPlane } from "../apps/control-plane/src/app.ts";

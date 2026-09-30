@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import { generateNodeKeyPair, verifyNodeRequest } from "@adc/client";
+import { generateNodeKeyPair, verifyNodeRequest } from "@adc/client/node";
 import { NodeWakeSignalSchema } from "@adc/protocol";
 import { WebSocketServer } from "ws";
 import { WebSocketWakeSource } from "./wake.ts";

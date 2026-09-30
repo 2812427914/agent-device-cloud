@@ -6,11 +6,8 @@ import { IdentityStore, PostgresStore } from "../packages/db/src/index.ts";
 import { createAuthentication } from "../apps/control-plane/src/auth.ts";
 import { createAccessService } from "../apps/control-plane/src/access.ts";
 import { createControlPlane } from "../apps/control-plane/src/app.ts";
-import {
-  buildInvocation,
-  generateNodeKeyPair,
-  signNodeRequest
-} from "../packages/client/src/index.ts";
+import { buildInvocation } from "../packages/client/src/index.ts";
+import { generateNodeKeyPair, signNodeRequest } from "../packages/client/src/node.ts";
 import { CapabilitySchema } from "../packages/protocol/src/index.ts";
 
 const origin = "http://localhost:8787";

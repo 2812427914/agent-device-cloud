@@ -7,7 +7,7 @@ import { dirname, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PostgresMemoryServer } from "postgres-memory-server";
 import type { FastifyInstance } from "fastify";
-import { NodeApiClient, generateNodeKeyPair } from "../packages/client/src/index.ts";
+import { NodeApiClient, generateNodeKeyPair } from "../packages/client/src/node.ts";
 import { IdentityStore, PostgresStore } from "../packages/db/src/index.ts";
 import { CapabilitySchema } from "../packages/protocol/src/index.ts";
 import { createAuthentication } from "../apps/control-plane/src/auth.ts";

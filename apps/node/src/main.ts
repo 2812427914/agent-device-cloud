@@ -4,7 +4,7 @@ import { hostname } from "node:os";
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { ReadStream, WriteStream } from "node:tty";
-import { NodeApiClient, generateNodeKeyPair } from "@adc/client";
+import { NodeApiClient, generateNodeKeyPair } from "@adc/client/node";
 import { NodeDaemon } from "./daemon.ts";
 import {
   ConfigSchema,

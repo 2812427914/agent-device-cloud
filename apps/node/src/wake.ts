@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { signNodeRequest } from "@adc/client";
+import { signNodeRequest } from "@adc/client/node";
 import { NodeWakeSignalSchema } from "@adc/protocol";
 import WebSocket from "ws";
 

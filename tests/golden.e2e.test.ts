@@ -3,12 +3,8 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import type { InjectOptions, LightMyRequestResponse } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  AdcClient,
-  NodeApiClient,
-  buildInvocation,
-  generateNodeKeyPair
-} from "../packages/client/src/index.ts";
+import { AdcClient, buildInvocation } from "../packages/client/src/index.ts";
+import { NodeApiClient, generateNodeKeyPair } from "../packages/client/src/node.ts";
 import { MemoryStore } from "../packages/db/src/index.ts";
 import { createControlPlane } from "../apps/control-plane/src/app.ts";
 import { NodeDaemon } from "../apps/node/src/daemon.ts";
