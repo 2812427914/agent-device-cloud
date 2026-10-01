@@ -532,6 +532,13 @@ export const zh = {
   Purpose: "用途",
   Risk: "风险",
   "Discover devices and inspect their current capability.": "发现设备并查看其实时能力。",
+  "Device-native capabilities": "设备原生能力",
+  "Mobile capabilities and Android permissions are managed on the phone.":
+    "移动能力和 Android 权限在手机端管理。",
+  device: "台设备",
+  devices: "台设备",
+  "Read live state exposed by an authorized mobile device.": "读取已授权移动设备提供的实时状态。",
+  "Present an authorized notification on a mobile device.": "在已授权的移动设备上显示通知。",
   "List, read and search files inside authorized folders.": "在授权目录中列出、读取和搜索文件。",
   "Create, replace, edit or patch files atomically.": "以原子方式创建、替换、编辑或修补文件。",
   "Run shell commands or locally configured command templates and tests.":

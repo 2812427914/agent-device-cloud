@@ -1,4 +1,11 @@
-import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  generateKeyPairSync,
+  sign,
+  verify
+} from "node:crypto";
 
 function canonicalJson(value: unknown): string {
   if (value === undefined) return "";
@@ -41,7 +48,9 @@ export function signNodeRequest(
     body?: unknown;
   }
 ): string {
-  return sign(null, Buffer.from(nodeRequestPayload(input)), privateKey).toString("base64url");
+  const key = createPrivateKey(privateKey);
+  const algorithm = key.asymmetricKeyType === "ec" ? "sha256" : null;
+  return sign(algorithm, Buffer.from(nodeRequestPayload(input)), key).toString("base64url");
 }
 
 export function verifyNodeRequest(
@@ -56,10 +65,12 @@ export function verifyNodeRequest(
   }
 ): boolean {
   try {
+    const key = createPublicKey(publicKey);
+    const algorithm = key.asymmetricKeyType === "ec" ? "sha256" : null;
     return verify(
-      null,
+      algorithm,
       Buffer.from(nodeRequestPayload(input)),
-      publicKey,
+      key,
       Buffer.from(signature, "base64url")
     );
   } catch {

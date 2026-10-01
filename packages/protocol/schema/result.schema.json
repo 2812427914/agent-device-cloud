@@ -135,6 +135,10 @@
               "enum": [
                 "device.list",
                 "device.status",
+                "device.battery.get",
+                "device.network.get",
+                "location.get",
+                "notification.show",
                 "file.list",
                 "file.read",
                 "file.search",

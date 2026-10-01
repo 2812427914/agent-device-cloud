@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
 import type { InjectOptions, LightMyRequestResponse } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { AdcClient } from "@adc/client";
@@ -112,6 +112,48 @@ describe("control plane", () => {
         publicKey: keys.publicKey
       })
     ).resolves.toMatchObject({ nodeId: expect.stringMatching(/^node_/) });
+  });
+
+  it("accepts an Android node backed by a P-256 device identity", async () => {
+    const { owner, fetcher } = await fixture();
+    const pairing = await owner.createPairingCode();
+    const keys = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    const privateKey = keys.privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    const publicKey = keys.publicKey.export({ type: "spki", format: "pem" }).toString();
+    const paired = await new NodeApiClient("http://adc.test", undefined, privateKey, fetcher).pair({
+      code: pairing.code,
+      label: "test-android",
+      platform: "android",
+      publicKey
+    });
+    const android = new NodeApiClient("http://adc.test", paired.nodeId, privateKey, fetcher);
+
+    await expect(
+      android.poll(
+        CapabilitySchema.parse({
+          schemaVersion: "0.1",
+          nodeId: paired.nodeId,
+          tools: [
+            {
+              name: "location.get",
+              version: "0.1.0",
+              risk: "read",
+              sandboxProfiles: ["native-app"],
+              availability: {
+                state: "permission_required",
+                reason: "Allow location access.",
+                observedAt: new Date().toISOString()
+              }
+            }
+          ],
+          roots: [],
+          accessMode: "none",
+          platform: "android",
+          nodeVersion: "0.1.0",
+          advertisedAt: new Date().toISOString()
+        })
+      )
+    ).resolves.toMatchObject({ dispatch: null });
   });
 
   it("pairs once, dispatches with a lease, accepts a terminal result and audits it", async () => {

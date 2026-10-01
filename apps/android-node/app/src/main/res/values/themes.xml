@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AgentDeviceCloud" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#155EEF</item>
+        <item name="colorPrimaryVariant">#004EEB</item>
+        <item name="colorSecondary">#087A5B</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F7F8FA</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+    </style>
+</resources>

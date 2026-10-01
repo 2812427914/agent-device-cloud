@@ -613,6 +613,8 @@ export function GrantForm({
     };
   }, [request, projectId, nodes, onError]);
   const available = roots.filter((root) => nodeIds.includes(root.nodeId));
+  const presetToolIds = new Set([...readTools, ...fileTools, ...runTools]);
+  const nativeById = new Map<string, { name: string; title: string; nodeIds: Set<string> }>();
   const customById = new Map<
     string,
     {
@@ -625,8 +627,23 @@ export function GrantForm({
   for (const node of nodes.filter(
     (candidate) => candidate.status === "active" && nodeIds.includes(candidate.nodeId)
   )) {
-    for (const tool of (node.effectiveCapability ?? node.capability)?.tools ?? []) {
-      if (!tool.name.startsWith("mcp.")) continue;
+    const effectiveToolIds = new Set(
+      (node.effectiveCapability ?? node.capability)?.tools.map((tool) => tool.name) ?? []
+    );
+    for (const tool of (node.capability ?? node.effectiveCapability)?.tools ?? []) {
+      if (!tool.name.startsWith("mcp.")) {
+        if (presetToolIds.has(tool.name)) continue;
+        const current = nativeById.get(tool.name);
+        if (current) current.nodeIds.add(node.nodeId);
+        else
+          nativeById.set(tool.name, {
+            name: tool.name,
+            title: tool.title ?? tool.name,
+            nodeIds: new Set([node.nodeId])
+          });
+        continue;
+      }
+      if (!effectiveToolIds.has(tool.name)) continue;
       const current = customById.get(tool.name);
       if (current) {
         current.nodeIds.add(node.nodeId);
@@ -640,6 +657,9 @@ export function GrantForm({
       }
     }
   }
+  const nativeTools = [...nativeById.values()].sort((left, right) =>
+    left.title.localeCompare(right.title)
+  );
   const customTools = [...customById.values()].sort(
     (left, right) =>
       left.provider.localeCompare(right.provider) || left.title.localeCompare(right.title)
@@ -896,6 +916,37 @@ export function GrantForm({
               </label>
             ))}
           </div>
+          {nativeTools.length ? (
+            <>
+              <h3 className="permission-group-title">{t("Device-native capabilities")}</h3>
+              <div className="checkbox-grid">
+                {nativeTools.map((tool) => (
+                  <label className="checkbox capability-choice" key={tool.name}>
+                    <input
+                      type="checkbox"
+                      checked={tools.includes(tool.name)}
+                      onChange={(event) => {
+                        setLevel("custom");
+                        setProfile("workspace-write");
+                        setTools((current) =>
+                          event.target.checked
+                            ? [...new Set([...current, tool.name])]
+                            : current.filter((value) => value !== tool.name)
+                        );
+                      }}
+                    />
+                    <span>
+                      <strong>{tool.title}</strong>
+                      <small>
+                        {tool.name} · {tool.nodeIds.size}{" "}
+                        {t(tool.nodeIds.size === 1 ? "device" : "devices")}
+                      </small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </>
+          ) : null}
           {customTools.length || unavailableCustomTools.length ? (
             <>
               <h3 className="permission-group-title">{t("MCP Provider tools")}</h3>

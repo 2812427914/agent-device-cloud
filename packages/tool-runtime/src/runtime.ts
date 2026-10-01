@@ -449,7 +449,7 @@ export class ToolRuntime {
         }
         throw new ProtocolError(
           ErrorCodes.INVALID_REQUEST,
-          `tool is handled by the control plane, not the local runtime: ${invocation.tool}`,
+          `tool is not supported by this node runtime: ${invocation.tool}`,
           false
         );
     }

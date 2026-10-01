@@ -298,6 +298,11 @@ function descriptionFor(tool: ToolName): string {
   const descriptions: Record<ToolName, string> = {
     "device.list": "List devices visible to the current agent grant.",
     "device.status": "Get the current state of one visible device.",
+    "device.battery.get": "Read battery and charging state from a mobile device.",
+    "device.network.get": "Read the active network type and metering state from a mobile device.",
+    "location.get":
+      "Read a fresh or recently cached location from a mobile device within its local permission.",
+    "notification.show": "Show a notification on a mobile device.",
     "file.list": "List files below an authorized root on target.nodeId.",
     "file.read": "Read a UTF-8 file below an authorized root on target.nodeId.",
     "file.search": "Search text below an authorized root on target.nodeId.",

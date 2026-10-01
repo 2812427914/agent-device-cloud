@@ -89,6 +89,10 @@ const docsSummaries: Partial<Record<DocsPageId, Message>> = {
 export const documentedTools = [
   "device.list",
   "device.status",
+  "device.battery.get",
+  "device.network.get",
+  "location.get",
+  "notification.show",
   "file.list",
   "file.read",
   "file.search",
@@ -1015,6 +1019,16 @@ function ToolReference() {
       tools: ["device.list", "device.status"],
       risk: "Read",
       purpose: "Discover devices and inspect their current capability."
+    },
+    {
+      tools: ["device.battery.get", "device.network.get", "location.get"],
+      risk: "Read",
+      purpose: "Read live state exposed by an authorized mobile device."
+    },
+    {
+      tools: ["notification.show"],
+      risk: "Write",
+      purpose: "Present an authorized notification on a mobile device."
     },
     {
       tools: ["file.list", "file.read", "file.search"],

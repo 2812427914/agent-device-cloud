@@ -78,7 +78,9 @@ export function effectiveCapability(node: NodeRecord) {
         writable: root.writable && !policy.readOnlyRootIds.includes(root.rootId)
       })),
     tools: capability.tools.filter(
-      (tool) => policy.allowExecution || (!executionTools.has(tool.name) && tool.risk !== "execute")
+      (tool) =>
+        (tool.availability?.state ?? "available") === "available" &&
+        (policy.allowExecution || (!executionTools.has(tool.name) && tool.risk !== "execute"))
     )
   };
 }

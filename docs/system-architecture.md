@@ -316,6 +316,7 @@ flowchart LR
   subgraph Current
     PERSONAL["Personal accounts"]
     MACLINUX["macOS / Linux / Windows Node"]
+    ANDROID["Android native capability Node MVP"]
     PROCESS["Restricted process / full trust"]
     POSTGRES["PostgreSQL dispatch + artifacts"]
     INTERFACES["MCP / CLI / Skill / SDK"]
@@ -331,7 +332,7 @@ flowchart LR
   subgraph Later
     CONTAINER["Linux container isolation"]
     TEAM["Teams / RBAC / SSO / SIEM"]
-    MOBILE["Mobile capability nodes"]
+    MOBILE["Additional mobile capabilities / iOS"]
     PLUGINS["Tool plugin ecosystem"]
   end
 
@@ -344,4 +345,5 @@ security details and verified implementation state.
 
 The [device integration assessment](device-integration-assessment.md) inventories mobile,
 wearable, router and home-device constraints, gateway options and current implementation gaps.
-Its proposed device bindings and adapters are not shipped capabilities.
+The Android MVP is the first native mobile implementation; the broader device bindings and adapters
+in that assessment remain proposed capabilities.

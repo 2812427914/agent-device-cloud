@@ -35,7 +35,7 @@ export const DispatchIdSchema = z.string().regex(/^dsp_[a-z0-9][a-z0-9_-]{2,127}
 export const ApprovalIdSchema = z.string().regex(/^apr_[a-z0-9][a-z0-9_-]{2,127}$/);
 export const ReceiptIdSchema = z.string().regex(/^rcpt_[a-z0-9][a-z0-9_-]{2,127}$/);
 export const JobIdSchema = z.string().regex(/^job_[a-z0-9][a-z0-9_-]{2,127}$/);
-export const NodePlatformSchema = z.enum(["darwin", "linux", "win32"]);
+export const NodePlatformSchema = z.enum(["darwin", "linux", "win32", "android"]);
 export type NodePlatform = z.infer<typeof NodePlatformSchema>;
 
 export const NodeWakeSignalSchema = z
@@ -181,6 +181,26 @@ const ShellOptions = {
 export const ToolArgsSchemas = {
   "device.list": z.object({}).strict(),
   "device.status": z.object({ nodeId: NodeIdSchema }).strict(),
+  "device.battery.get": z.object({}).strict(),
+  "device.network.get": z.object({}).strict(),
+  "location.get": z
+    .object({
+      desiredAccuracy: z.enum(["coarse", "balanced", "precise"]).default("balanced"),
+      maxAgeMs: z
+        .number()
+        .int()
+        .min(0)
+        .max(10 * 60 * 1000)
+        .default(15_000),
+      timeoutMs: z.number().int().min(1_000).max(30_000).default(10_000)
+    })
+    .strict(),
+  "notification.show": z
+    .object({
+      title: z.string().trim().min(1).max(120),
+      body: z.string().max(2000)
+    })
+    .strict(),
   "file.list": z.union([
     z.object({ ...LegacyRootPathShape, ...FileListOptions }).strict(),
     z.object({ ...AbsolutePathShape, ...FileListOptions }).strict()
@@ -288,6 +308,9 @@ export function absolutePathForToolArgs(
 export const ReadOnlyTools: ReadonlySet<ToolName> = new Set([
   "device.list",
   "device.status",
+  "device.battery.get",
+  "device.network.get",
+  "location.get",
   "file.list",
   "file.read",
   "file.search",
@@ -297,6 +320,7 @@ export const ReadOnlyTools: ReadonlySet<ToolName> = new Set([
 ]);
 
 export const SideEffectTools: ReadonlySet<ToolName> = new Set([
+  "notification.show",
   "file.write",
   "file.edit",
   "file.patch",
@@ -490,7 +514,22 @@ export const ToolCapabilitySchema = z
     name: ToolIdSchema,
     version: z.string().regex(/^\d+\.\d+\.\d+$/),
     risk: z.enum(["read", "write", "execute"]),
-    sandboxProfiles: z.array(z.enum(["restricted-process", "full-trust", "container"])).min(1),
+    sandboxProfiles: z
+      .array(z.enum(["restricted-process", "full-trust", "container", "native-app"]))
+      .min(1),
+    availability: z
+      .object({
+        state: z.enum([
+          "available",
+          "permission_required",
+          "foreground_required",
+          "temporarily_unavailable"
+        ]),
+        reason: z.string().min(1).max(500).optional(),
+        observedAt: z.iso.datetime({ offset: true })
+      })
+      .strict()
+      .optional(),
     title: z.string().min(1).max(128).optional(),
     description: z.string().min(1).max(4000).optional(),
     inputSchema: JsonObjectSchema.optional(),

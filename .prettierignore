@@ -3,3 +3,6 @@ dist/
 packages/protocol/schema/
 pnpm-lock.yaml
 .adc/
+apps/android-node/.gradle/
+apps/android-node/.kotlin/
+apps/android-node/app/build/

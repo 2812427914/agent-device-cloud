@@ -33,6 +33,10 @@ The live schema is authoritative. These examples show the protocol 0.1 shapes:
 | ----------------------- | --------------------------------------------------------------------------------------------- |
 | `device.list`           | `{}`                                                                                          |
 | `device.status`         | `{"nodeId":"node_example"}`                                                                   |
+| `device.battery.get`    | `{}`                                                                                          |
+| `device.network.get`    | `{}`                                                                                          |
+| `location.get`          | `{"desiredAccuracy":"balanced","maxAgeMs":15000,"timeoutMs":10000}`                           |
+| `notification.show`     | `{"title":"ADC","body":"Task completed"}`                                                     |
 | `file.list`             | `{"path":"/absolute/folder","glob":"**/*.ts","maxEntries":1000}`                              |
 | `file.read`             | `{"path":"/absolute/file","encoding":"utf8","maxBytes":1048576}`                              |
 | `file.search`           | `{"path":"/absolute/folder","query":"needle","glob":"**/*.ts","maxMatches":1000}`             |

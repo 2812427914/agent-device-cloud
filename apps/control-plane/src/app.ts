@@ -637,8 +637,19 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       .strict()
       .parse(request.body);
     const publicKey = createPublicKey(body.publicKey);
-    if (publicKey.asymmetricKeyType !== "ed25519") {
-      return apiError(reply, 400, ErrorCodes.INVALID_REQUEST, "device key must be Ed25519");
+    if (
+      publicKey.asymmetricKeyType !== "ed25519" &&
+      !(
+        publicKey.asymmetricKeyType === "ec" &&
+        publicKey.asymmetricKeyDetails?.namedCurve === "prime256v1"
+      )
+    ) {
+      return apiError(
+        reply,
+        400,
+        ErrorCodes.INVALID_REQUEST,
+        "device key must be Ed25519 or P-256"
+      );
     }
     const paired = await options.store.pairNode({
       codeHash: hash(body.code),
@@ -710,8 +721,16 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
         .strict()
         .parse(request.body);
       const key = createPublicKey(publicKey);
-      if (key.asymmetricKeyType !== "ed25519") {
-        return apiError(reply, 400, ErrorCodes.INVALID_REQUEST, "device key must be Ed25519");
+      if (
+        key.asymmetricKeyType !== "ed25519" &&
+        !(key.asymmetricKeyType === "ec" && key.asymmetricKeyDetails?.namedCurve === "prime256v1")
+      ) {
+        return apiError(
+          reply,
+          400,
+          ErrorCodes.INVALID_REQUEST,
+          "device key must be Ed25519 or P-256"
+        );
       }
       if (!(await options.store.rotateNodeKey(nodeId, publicKey, now()))) {
         return apiError(reply, 404, ErrorCodes.NOT_FOUND, "device was not found");

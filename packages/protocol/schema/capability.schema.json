@@ -52,7 +52,8 @@
       "enum": [
         "darwin",
         "linux",
-        "win32"
+        "win32",
+        "android"
       ]
     },
     "accessMode": {
@@ -101,20 +102,23 @@
         "sandboxProfiles": {
           "$ref": "#/$defs/__schema4"
         },
-        "title": {
+        "availability": {
           "$ref": "#/$defs/__schema6"
         },
-        "description": {
+        "title": {
           "$ref": "#/$defs/__schema7"
         },
-        "inputSchema": {
+        "description": {
           "$ref": "#/$defs/__schema8"
         },
+        "inputSchema": {
+          "$ref": "#/$defs/__schema9"
+        },
         "outputSchema": {
-          "$ref": "#/$defs/__schema12"
+          "$ref": "#/$defs/__schema13"
         },
         "provider": {
-          "$ref": "#/$defs/__schema13"
+          "$ref": "#/$defs/__schema14"
         }
       },
       "required": [
@@ -132,6 +136,10 @@
           "enum": [
             "device.list",
             "device.status",
+            "device.battery.get",
+            "device.network.get",
+            "location.get",
+            "notification.show",
             "file.list",
             "file.read",
             "file.search",
@@ -179,39 +187,69 @@
       "enum": [
         "restricted-process",
         "full-trust",
-        "container"
+        "container",
+        "native-app"
       ]
     },
     "__schema6": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "available",
+            "permission_required",
+            "foreground_required",
+            "temporarily_unavailable"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+        }
+      },
+      "required": [
+        "state",
+        "observedAt"
+      ],
+      "additionalProperties": false
     },
     "__schema7": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 4000
+      "maxLength": 128
     },
     "__schema8": {
-      "$ref": "#/$defs/__schema9"
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
     },
     "__schema9": {
-      "type": "object",
-      "propertyNames": {
-        "$ref": "#/$defs/__schema10"
-      },
-      "additionalProperties": {
-        "$ref": "#/$defs/__schema11"
-      }
+      "$ref": "#/$defs/__schema10"
     },
     "__schema10": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/__schema11"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/__schema12"
+      }
+    },
+    "__schema11": {
       "type": "string"
     },
-    "__schema11": {},
-    "__schema12": {
-      "$ref": "#/$defs/__schema9"
-    },
+    "__schema12": {},
     "__schema13": {
+      "$ref": "#/$defs/__schema10"
+    },
+    "__schema14": {
       "type": "object",
       "properties": {
         "kind": {

@@ -2,11 +2,11 @@ import { createHash } from "node:crypto";
 import { AdcClientError, NodeApiClient, type NodeDispatch } from "@adc/client/node";
 import {
   CapabilitySchema,
-  ToolNameSchema,
   absolutePathForToolArgs,
   rootForAbsolutePath,
   type CapabilityAdvertisement,
-  type NodePlatform
+  type NodePlatform,
+  type ToolName
 } from "@adc/protocol";
 import { ToolRuntime, type CommandTemplate, type LocalRoot } from "@adc/tool-runtime";
 import type { McpProviderConfig } from "./config.ts";
@@ -16,6 +16,18 @@ import { WakeLatch, WebSocketWakeSource, type NodeWakeSource } from "./wake.ts";
 
 const DEFAULT_MAX_CONCURRENCY = 6;
 const MAX_MAX_CONCURRENCY = 32;
+const DESKTOP_TOOLS = [
+  "file.list",
+  "file.read",
+  "file.search",
+  "file.write",
+  "file.edit",
+  "file.patch",
+  "shell.exec",
+  "command.template.list",
+  "command.template.run",
+  "test.run"
+] as const satisfies readonly ToolName[];
 
 interface LocalAccess {
   roots: LocalRoot[];
@@ -155,34 +167,23 @@ export class NodeDaemon {
       schemaVersion: "0.1",
       nodeId: this.options.nodeId,
       tools: [
-        ...ToolNameSchema.options
-          .filter(
-            (name) =>
-              ![
-                "device.list",
-                "device.status",
-                "task.status",
-                "task.result",
-                "task.cancel"
-              ].includes(name)
-          )
-          .map((name) => ({
-            name,
-            version: "0.1.0",
-            risk:
-              name.startsWith("file.") && !["file.write", "file.edit", "file.patch"].includes(name)
+        ...DESKTOP_TOOLS.map((name) => ({
+          name,
+          version: "0.1.0",
+          risk:
+            name.startsWith("file.") && !["file.write", "file.edit", "file.patch"].includes(name)
+              ? ("read" as const)
+              : name === "command.template.list"
                 ? ("read" as const)
-                : name === "command.template.list"
-                  ? ("read" as const)
-                  : name === "file.write" || name === "file.edit" || name === "file.patch"
-                    ? ("write" as const)
-                    : ("execute" as const),
-            sandboxProfiles: [
-              this.access.accessMode === "full"
-                ? ("full-trust" as const)
-                : ("restricted-process" as const)
-            ]
-          })),
+                : name === "file.write" || name === "file.edit" || name === "file.patch"
+                  ? ("write" as const)
+                  : ("execute" as const),
+          sandboxProfiles: [
+            this.access.accessMode === "full"
+              ? ("full-trust" as const)
+              : ("restricted-process" as const)
+          ]
+        })),
         ...this.providers.capabilities()
       ],
       accessMode: this.access.accessMode ?? "selected",

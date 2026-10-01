@@ -4,5 +4,9 @@ dist/
 .adc/
 coverage/
 apps/console/dist/
+apps/android-node/.gradle/
+apps/android-node/.kotlin/
+apps/android-node/app/build/
+apps/android-node/local.properties
 .DS_Store
 docs/fiction/

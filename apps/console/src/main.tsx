@@ -22,6 +22,7 @@ import {
   LayoutDashboard,
   RefreshCw,
   Settings,
+  Smartphone,
   ShieldCheck,
   X
 } from "lucide-react";
@@ -645,7 +646,11 @@ function Devices({ request, revision, refresh, onError }: PageProps) {
         {visibleNodes.map((node) => (
           <article className="device-card" key={node.nodeId}>
             <div className="device-heading">
-              <Laptop size={24} strokeWidth={1.4} />
+              {node.platform === "android" ? (
+                <Smartphone size={24} strokeWidth={1.4} />
+              ) : (
+                <Laptop size={24} strokeWidth={1.4} />
+              )}
               <span
                 className={`state ${node.status === "revoked" ? "revoked" : node.online ? "active" : "offline"}`}
               >
@@ -658,7 +663,9 @@ function Devices({ request, revision, refresh, onError }: PageProps) {
                 ? "macOS"
                 : node.platform === "win32"
                   ? "Windows"
-                  : node.platform}{" "}
+                  : node.platform === "android"
+                    ? "Android"
+                    : node.platform}{" "}
               · {node.capability?.nodeVersion ?? "—"}
             </p>
             <div className="device-scope">

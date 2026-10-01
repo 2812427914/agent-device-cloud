@@ -1,9 +1,10 @@
 # Agent Device Cloud
 
 Agent Device Cloud is private device infrastructure for AI agents. It gives MCP clients, coding
-agents, Skills and automation controlled access to the files, tools and environments already
-available on your own macOS and Linux devices. The control plane authenticates, authorizes, routes
-and records calls; resource validation and execution happen on the selected device.
+agents, Skills and automation controlled access to capabilities on devices you own. Desktop Nodes
+provide governed files, tools and environments on macOS, Linux and Windows. The Android Mobile Node
+MVP provides a smaller native capability surface. The control plane authenticates, authorizes,
+routes and records calls; resource validation and execution happen on the selected device.
 
 It is designed first for developers and self-hosters who need to continue local development, use
 private infrastructure, move work between Agent interfaces or automate repeatable tasks without
@@ -26,6 +27,10 @@ authorization gates and dispatch state machine are mapped in
 [system architecture](docs/system-architecture.md). The public content, search indexing, hosted
 analytics and release process are defined in [growth and operations](docs/growth-operations.md).
 Self-hosted installations send no analytics by default.
+
+The native Android source, build instructions, current capabilities and Xiaomi/HyperOS limitations
+are documented in [apps/android-node](apps/android-node/README.md). It is an MVP awaiting physical
+device certification and is not included in the hosted Connector downloads.
 
 ## Hosted preview
 

@@ -180,6 +180,295 @@
             },
             "tool": {
               "type": "string",
+              "const": "device.battery.get"
+            },
+            "args": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "invocationId",
+            "attemptId",
+            "accountId",
+            "actor",
+            "target",
+            "authorization",
+            "issuedAt",
+            "expiresAt",
+            "metadata",
+            "tool",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "invocationId": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "accountId": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "actor": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "target": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "authorization": {
+              "$ref": "#/$defs/__schema9"
+            },
+            "issuedAt": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "expiresAt": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "idempotencyKey": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "metadata": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "tool": {
+              "type": "string",
+              "const": "device.network.get"
+            },
+            "args": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "invocationId",
+            "attemptId",
+            "accountId",
+            "actor",
+            "target",
+            "authorization",
+            "issuedAt",
+            "expiresAt",
+            "metadata",
+            "tool",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "invocationId": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "accountId": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "actor": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "target": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "authorization": {
+              "$ref": "#/$defs/__schema9"
+            },
+            "issuedAt": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "expiresAt": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "idempotencyKey": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "metadata": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "tool": {
+              "type": "string",
+              "const": "location.get"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "desiredAccuracy": {
+                  "default": "balanced",
+                  "type": "string",
+                  "enum": [
+                    "coarse",
+                    "balanced",
+                    "precise"
+                  ]
+                },
+                "maxAgeMs": {
+                  "default": 15000,
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 600000
+                },
+                "timeoutMs": {
+                  "default": 10000,
+                  "type": "integer",
+                  "minimum": 1000,
+                  "maximum": 30000
+                }
+              },
+              "required": [
+                "desiredAccuracy",
+                "maxAgeMs",
+                "timeoutMs"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "invocationId",
+            "attemptId",
+            "accountId",
+            "actor",
+            "target",
+            "authorization",
+            "issuedAt",
+            "expiresAt",
+            "metadata",
+            "tool",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "invocationId": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "accountId": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "actor": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "target": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "authorization": {
+              "$ref": "#/$defs/__schema9"
+            },
+            "issuedAt": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "expiresAt": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "idempotencyKey": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "metadata": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "tool": {
+              "type": "string",
+              "const": "notification.show"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "body": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "title",
+                "body"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "invocationId",
+            "attemptId",
+            "accountId",
+            "actor",
+            "target",
+            "authorization",
+            "issuedAt",
+            "expiresAt",
+            "metadata",
+            "tool",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "invocationId": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "accountId": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "actor": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "target": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "authorization": {
+              "$ref": "#/$defs/__schema9"
+            },
+            "issuedAt": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "expiresAt": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "idempotencyKey": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "metadata": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "tool": {
+              "type": "string",
               "const": "file.list"
             },
             "args": {

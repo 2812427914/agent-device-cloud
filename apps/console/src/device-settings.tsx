@@ -35,6 +35,7 @@ export function DeviceSettings({
   const [folder, setFolder] = useState(""),
     [copied, setCopied] = useState(false);
   const roots = node.capability?.roots ?? [];
+  const mobile = node.platform === "android";
   const quote = (value: string) =>
     node.platform === "win32"
       ? `'${value.replaceAll("'", "''")}'`
@@ -103,79 +104,91 @@ export function DeviceSettings({
               "These limits apply to every agent on this device. Local permissions remain the upper limit."
             )}
           </p>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={policy.rootAccess === "all"}
-              onChange={(event) =>
-                setPolicy((p) => ({
-                  ...p,
-                  rootAccess: event.target.checked ? "all" : "selected",
-                  rootIds: event.target.checked ? [] : roots.map((root) => root.rootId)
-                }))
-              }
-            />
-            {t("Include all current and future exposed folders")}
-          </label>
-          <div className="managed-roots">
-            {roots.map((root) => (
-              <div className="managed-root" key={root.rootId}>
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={policy.rootAccess === "all" || policy.rootIds.includes(root.rootId)}
-                    disabled={policy.rootAccess === "all"}
-                    onChange={(event) =>
-                      setPolicy((p) => ({
-                        ...p,
-                        rootIds: event.target.checked
-                          ? [...p.rootIds, root.rootId]
-                          : p.rootIds.filter((id) => id !== root.rootId)
-                      }))
-                    }
-                  />
-                  <span>
-                    {root.label}
-                    <code className="subtle">{root.path ?? root.rootId}</code>
-                  </span>
-                </label>
-                <select
-                  aria-label={`${t("Access")} · ${root.label}`}
-                  disabled={policy.rootAccess !== "all" && !policy.rootIds.includes(root.rootId)}
-                  value={
-                    !root.writable || policy.readOnlyRootIds.includes(root.rootId)
-                      ? "read"
-                      : "write"
-                  }
+          {mobile ? (
+            <p className="hint">
+              {t("Mobile capabilities and Android permissions are managed on the phone.")}
+            </p>
+          ) : (
+            <>
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={policy.rootAccess === "all"}
                   onChange={(event) =>
                     setPolicy((p) => ({
                       ...p,
-                      readOnlyRootIds:
-                        event.target.value === "read"
-                          ? [...new Set([...p.readOnlyRootIds, root.rootId])]
-                          : p.readOnlyRootIds.filter((id) => id !== root.rootId)
+                      rootAccess: event.target.checked ? "all" : "selected",
+                      rootIds: event.target.checked ? [] : roots.map((root) => root.rootId)
                     }))
                   }
-                >
-                  <option value="read">{t("Read only")}</option>
-                  <option value="write" disabled={!root.writable}>
-                    {t("Read & write")}
-                  </option>
-                </select>
+                />
+                {t("Include all current and future exposed folders")}
+              </label>
+              <div className="managed-roots">
+                {roots.map((root) => (
+                  <div className="managed-root" key={root.rootId}>
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={
+                          policy.rootAccess === "all" || policy.rootIds.includes(root.rootId)
+                        }
+                        disabled={policy.rootAccess === "all"}
+                        onChange={(event) =>
+                          setPolicy((p) => ({
+                            ...p,
+                            rootIds: event.target.checked
+                              ? [...p.rootIds, root.rootId]
+                              : p.rootIds.filter((id) => id !== root.rootId)
+                          }))
+                        }
+                      />
+                      <span>
+                        {root.label}
+                        <code className="subtle">{root.path ?? root.rootId}</code>
+                      </span>
+                    </label>
+                    <select
+                      aria-label={`${t("Access")} · ${root.label}`}
+                      disabled={
+                        policy.rootAccess !== "all" && !policy.rootIds.includes(root.rootId)
+                      }
+                      value={
+                        !root.writable || policy.readOnlyRootIds.includes(root.rootId)
+                          ? "read"
+                          : "write"
+                      }
+                      onChange={(event) =>
+                        setPolicy((p) => ({
+                          ...p,
+                          readOnlyRootIds:
+                            event.target.value === "read"
+                              ? [...new Set([...p.readOnlyRootIds, root.rootId])]
+                              : p.readOnlyRootIds.filter((id) => id !== root.rootId)
+                        }))
+                      }
+                    >
+                      <option value="read">{t("Read only")}</option>
+                      <option value="write" disabled={!root.writable}>
+                        {t("Read & write")}
+                      </option>
+                    </select>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {!roots.length ? <p className="hint">{t("No folders exposed yet")}</p> : null}
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={policy.allowExecution}
-              onChange={(event) =>
-                setPolicy((p) => ({ ...p, allowExecution: event.target.checked }))
-              }
-            />
-            {t("Allow commands and tests")}
-          </label>
+              {!roots.length ? <p className="hint">{t("No folders exposed yet")}</p> : null}
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={policy.allowExecution}
+                  onChange={(event) =>
+                    setPolicy((p) => ({ ...p, allowExecution: event.target.checked }))
+                  }
+                />
+                {t("Allow commands and tests")}
+              </label>
+            </>
+          )}
           <label className="field concurrency-field">
             {t("Concurrent task limit")}
             <input
@@ -218,46 +231,48 @@ export function DeviceSettings({
           </button>
         </div>
       </form>
-      <details className="local-folder-setup">
-        <summary>{t("Add or change local folders")}</summary>
-        <p className="hint">
-          {t(
-            "Run the command on this device. The folder appears here automatically; no pairing is needed."
-          )}
-        </p>
-        <label className="field">
-          {t("Local folder path")}
-          <input
-            value={folder}
-            placeholder={node.platform === "win32" ? "C:\\path\\to\\folder" : "/path/to/folder"}
-            onChange={(event) => {
-              setFolder(event.target.value);
-              setCopied(false);
+      {!mobile ? (
+        <details className="local-folder-setup">
+          <summary>{t("Add or change local folders")}</summary>
+          <p className="hint">
+            {t(
+              "Run the command on this device. The folder appears here automatically; no pairing is needed."
+            )}
+          </p>
+          <label className="field">
+            {t("Local folder path")}
+            <input
+              value={folder}
+              placeholder={node.platform === "win32" ? "C:\\path\\to\\folder" : "/path/to/folder"}
+              onChange={(event) => {
+                setFolder(event.target.value);
+                setCopied(false);
+              }}
+            />
+          </label>
+          <pre>
+            <code>{command}</code>
+          </pre>
+          <button
+            className="secondary"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(command);
+                setCopied(true);
+              } catch {
+                setError(t("Could not copy. Select and copy the command above."));
+              }
             }}
-          />
-        </label>
-        <pre>
-          <code>{command}</code>
-        </pre>
-        <button
-          className="secondary"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(command);
-              setCopied(true);
-            } catch {
-              setError(t("Could not copy. Select and copy the command above."));
-            }
-          }}
-        >
-          {t(copied ? "Copied" : "Copy command")}
-        </button>
-        <p className="hint">
-          {t(
-            "To use your home folder or full device trust, run adc-node access home or adc-node access full locally."
-          )}
-        </p>
-      </details>
+          >
+            {t(copied ? "Copied" : "Copy command")}
+          </button>
+          <p className="hint">
+            {t(
+              "To use your home folder or full device trust, run adc-node access home or adc-node access full locally."
+            )}
+          </p>
+        </details>
+      ) : null}
       <div className="danger-zone">
         <div>
           <strong>{t("Revoke device")}</strong>

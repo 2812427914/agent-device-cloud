@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ADC Mobile Node</string>
+    <string name="node_service_channel">ADC Node connection</string>
+    <string name="node_service_title">ADC Mobile Node is active</string>
+    <string name="node_service_idle">Waiting for authorized Agent requests</string>
+    <string name="agent_notifications_channel">Agent notifications</string>
+    <string name="default_device_name">%1$s %2$s</string>
+    <string name="node_not_paired">Not paired</string>
+    <string name="node_pairing">Pairing…</string>
+</resources>

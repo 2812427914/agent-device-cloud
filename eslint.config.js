@@ -7,6 +7,8 @@ export default tseslint.config(
       "**/dist/**",
       "**/node_modules/**",
       ".adc/**",
+      "apps/android-node/**/build/**",
+      "apps/android-node/.kotlin/**",
       "packages/protocol/schema/**",
       "eslint.config.js",
       "vitest.config.ts"
