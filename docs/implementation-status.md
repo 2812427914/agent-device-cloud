@@ -79,7 +79,7 @@
 
 ## Verified
 
-- 159 passing tests across 35 files on Node.js 24; one opt-in macOS service test skipped (160 total)
+- 160 passing tests across 35 files on Node.js 24; one opt-in macOS service test skipped (161 total)
 - Real PostgreSQL migration, concurrent `SKIP LOCKED` claims and restart persistence
 - Pairing/replay/revoke behavior
 - Symlink escape, secret redaction, command denial, timeout/cancel and output limits

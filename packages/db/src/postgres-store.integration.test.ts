@@ -140,6 +140,28 @@ describe("PostgresStore", () => {
     ).resolves.toMatchObject({ node: { platform: "win32" } });
   });
 
+  it("stores Android nodes after the platform constraint migration", async () => {
+    await store.putPairingCode({
+      codeHash: "pair-android",
+      accountId: "acct_primary",
+      expiresAt: new Date(Date.now() + 60_000).toISOString()
+    });
+    await expect(
+      store.pairNode({
+        codeHash: "pair-android",
+        now: new Date(),
+        node: {
+          nodeId: "node_android",
+          label: "android-node",
+          publicKey: "android-key",
+          platform: "android",
+          status: "active",
+          createdAt: new Date().toISOString()
+        }
+      })
+    ).resolves.toMatchObject({ node: { platform: "android" } });
+  });
+
   it("reports nodes replaced during same-label pairing", async () => {
     const now = new Date();
     await store.putPairingCode({
