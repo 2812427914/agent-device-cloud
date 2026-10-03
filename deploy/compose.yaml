@@ -43,7 +43,10 @@ services:
       ADC_CORS_ORIGINS: ${ADC_CORS_ORIGINS:-}
       ADC_CONSOLE_DIR: /app/apps/console/dist
       ADC_NODE_DOWNLOAD_URL: ${ADC_NODE_DOWNLOAD_URL:-}
+      ADC_ASSET_DIR: /var/lib/agent-device-cloud/assets
       DATABASE_URL: postgresql://adc:${ADC_DATABASE_PASSWORD}@postgres:5432/adc
+    volumes:
+      - adc-assets:/var/lib/agent-device-cloud/assets
     healthcheck:
       test:
         [
@@ -75,6 +78,7 @@ services:
 
 volumes:
   adc-postgres:
+  adc-assets:
   adc-caddy-data:
   adc-caddy-config:
 

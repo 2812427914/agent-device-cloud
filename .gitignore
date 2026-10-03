@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .adc/
+/data/
 coverage/
 apps/console/dist/
 apps/android-node/.gradle/

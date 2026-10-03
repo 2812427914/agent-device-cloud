@@ -91,8 +91,13 @@ export const documentedTools = [
   "device.status",
   "device.battery.get",
   "device.network.get",
+  "device.navigation",
   "location.get",
   "notification.show",
+  "screen.capture",
+  "ui.inspect",
+  "ui.action",
+  "ui.gesture",
   "file.list",
   "file.read",
   "file.search",
@@ -1021,7 +1026,13 @@ function ToolReference() {
       purpose: "Discover devices and inspect their current capability."
     },
     {
-      tools: ["device.battery.get", "device.network.get", "location.get"],
+      tools: [
+        "device.battery.get",
+        "device.network.get",
+        "location.get",
+        "screen.capture",
+        "ui.inspect"
+      ],
       risk: "Read",
       purpose: "Read live state exposed by an authorized mobile device."
     },
@@ -1029,6 +1040,11 @@ function ToolReference() {
       tools: ["notification.show"],
       risk: "Write",
       purpose: "Present an authorized notification on a mobile device."
+    },
+    {
+      tools: ["device.navigation", "ui.action", "ui.gesture"],
+      risk: "Execute",
+      purpose: "Operate the visible Android interface within local Accessibility permission."
     },
     {
       tools: ["file.list", "file.read", "file.search"],

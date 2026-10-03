@@ -1055,7 +1055,7 @@ export class PostgresStore implements Store {
         artifact.nodeId,
         artifact.contentType,
         artifact.sha256,
-        artifact.data.byteLength,
+        artifact.byteSize,
         artifact.data,
         artifact.createdAt
       ]
@@ -1090,6 +1090,7 @@ export class PostgresStore implements Store {
           nodeId: row.node_id,
           contentType: row.content_type,
           sha256: row.content_sha256,
+          byteSize: Number(row.byte_size),
           data: Buffer.from(row.data),
           createdAt: iso(row.created_at)
         }

@@ -5,7 +5,7 @@
       "$ref": "#/$defs/__schema0"
     },
     {
-      "$ref": "#/$defs/__schema35"
+      "$ref": "#/$defs/__schema45"
     }
   ],
   "$defs": {
@@ -304,6 +304,82 @@
             },
             "tool": {
               "type": "string",
+              "const": "device.navigation"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "back",
+                    "home",
+                    "recents",
+                    "notifications",
+                    "quick_settings"
+                  ]
+                }
+              },
+              "required": [
+                "action"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "invocationId",
+            "attemptId",
+            "accountId",
+            "actor",
+            "target",
+            "authorization",
+            "issuedAt",
+            "expiresAt",
+            "metadata",
+            "tool",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "invocationId": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "accountId": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "actor": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "target": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "authorization": {
+              "$ref": "#/$defs/__schema9"
+            },
+            "issuedAt": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "expiresAt": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "idempotencyKey": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "metadata": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "tool": {
+              "type": "string",
               "const": "location.get"
             },
             "args": {
@@ -469,6 +545,369 @@
             },
             "tool": {
               "type": "string",
+              "const": "screen.capture"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "format": {
+                  "default": "png",
+                  "type": "string",
+                  "const": "png"
+                },
+                "maxWidth": {
+                  "default": 1080,
+                  "type": "integer",
+                  "minimum": 320,
+                  "maximum": 2160
+                }
+              },
+              "required": [
+                "format",
+                "maxWidth"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "invocationId",
+            "attemptId",
+            "accountId",
+            "actor",
+            "target",
+            "authorization",
+            "issuedAt",
+            "expiresAt",
+            "metadata",
+            "tool",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "invocationId": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "accountId": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "actor": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "target": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "authorization": {
+              "$ref": "#/$defs/__schema9"
+            },
+            "issuedAt": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "expiresAt": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "idempotencyKey": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "metadata": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "tool": {
+              "type": "string",
+              "const": "ui.inspect"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "maxDepth": {
+                  "default": 12,
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 30
+                },
+                "maxNodes": {
+                  "default": 500,
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000
+                }
+              },
+              "required": [
+                "maxDepth",
+                "maxNodes"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "invocationId",
+            "attemptId",
+            "accountId",
+            "actor",
+            "target",
+            "authorization",
+            "issuedAt",
+            "expiresAt",
+            "metadata",
+            "tool",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "invocationId": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "accountId": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "actor": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "target": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "authorization": {
+              "$ref": "#/$defs/__schema9"
+            },
+            "issuedAt": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "expiresAt": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "idempotencyKey": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "metadata": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "tool": {
+              "type": "string",
+              "const": "ui.action"
+            },
+            "args": {
+              "type": "object",
+              "properties": {
+                "selector": {
+                  "$ref": "#/$defs/__schema15"
+                },
+                "action": {
+                  "$ref": "#/$defs/__schema23"
+                },
+                "text": {
+                  "$ref": "#/$defs/__schema24"
+                }
+              },
+              "required": [
+                "selector",
+                "action"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "invocationId",
+            "attemptId",
+            "accountId",
+            "actor",
+            "target",
+            "authorization",
+            "issuedAt",
+            "expiresAt",
+            "metadata",
+            "tool",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "invocationId": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "accountId": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "actor": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "target": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "authorization": {
+              "$ref": "#/$defs/__schema9"
+            },
+            "issuedAt": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "expiresAt": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "idempotencyKey": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "metadata": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "tool": {
+              "type": "string",
+              "const": "ui.gesture"
+            },
+            "args": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "tap"
+                    },
+                    "x": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 20000
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 20000
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "swipe"
+                    },
+                    "startX": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 20000
+                    },
+                    "startY": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 20000
+                    },
+                    "endX": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 20000
+                    },
+                    "endY": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 20000
+                    },
+                    "durationMs": {
+                      "default": 300,
+                      "type": "integer",
+                      "minimum": 50,
+                      "maximum": 5000
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "startX",
+                    "startY",
+                    "endX",
+                    "endY",
+                    "durationMs"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "invocationId",
+            "attemptId",
+            "accountId",
+            "actor",
+            "target",
+            "authorization",
+            "issuedAt",
+            "expiresAt",
+            "metadata",
+            "tool",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "invocationId": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "attemptId": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "accountId": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "actor": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "target": {
+              "$ref": "#/$defs/__schema6"
+            },
+            "authorization": {
+              "$ref": "#/$defs/__schema9"
+            },
+            "issuedAt": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "expiresAt": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "idempotencyKey": {
+              "$ref": "#/$defs/__schema13"
+            },
+            "metadata": {
+              "$ref": "#/$defs/__schema14"
+            },
+            "tool": {
+              "type": "string",
               "const": "file.list"
             },
             "args": {
@@ -480,13 +919,13 @@
                       "$ref": "#/$defs/__schema10"
                     },
                     "path": {
-                      "$ref": "#/$defs/__schema15"
+                      "$ref": "#/$defs/__schema25"
                     },
                     "glob": {
-                      "$ref": "#/$defs/__schema16"
+                      "$ref": "#/$defs/__schema26"
                     },
                     "maxEntries": {
-                      "$ref": "#/$defs/__schema17"
+                      "$ref": "#/$defs/__schema27"
                     }
                   },
                   "required": [
@@ -500,13 +939,13 @@
                   "type": "object",
                   "properties": {
                     "path": {
-                      "$ref": "#/$defs/__schema18"
+                      "$ref": "#/$defs/__schema28"
                     },
                     "glob": {
-                      "$ref": "#/$defs/__schema16"
+                      "$ref": "#/$defs/__schema26"
                     },
                     "maxEntries": {
-                      "$ref": "#/$defs/__schema17"
+                      "$ref": "#/$defs/__schema27"
                     }
                   },
                   "required": [
@@ -583,13 +1022,13 @@
                       "$ref": "#/$defs/__schema10"
                     },
                     "path": {
-                      "$ref": "#/$defs/__schema19"
+                      "$ref": "#/$defs/__schema29"
                     },
                     "encoding": {
-                      "$ref": "#/$defs/__schema20"
+                      "$ref": "#/$defs/__schema30"
                     },
                     "maxBytes": {
-                      "$ref": "#/$defs/__schema21"
+                      "$ref": "#/$defs/__schema31"
                     }
                   },
                   "required": [
@@ -604,13 +1043,13 @@
                   "type": "object",
                   "properties": {
                     "path": {
-                      "$ref": "#/$defs/__schema18"
+                      "$ref": "#/$defs/__schema28"
                     },
                     "encoding": {
-                      "$ref": "#/$defs/__schema20"
+                      "$ref": "#/$defs/__schema30"
                     },
                     "maxBytes": {
-                      "$ref": "#/$defs/__schema21"
+                      "$ref": "#/$defs/__schema31"
                     }
                   },
                   "required": [
@@ -688,16 +1127,16 @@
                       "$ref": "#/$defs/__schema10"
                     },
                     "path": {
-                      "$ref": "#/$defs/__schema15"
+                      "$ref": "#/$defs/__schema25"
                     },
                     "query": {
-                      "$ref": "#/$defs/__schema22"
+                      "$ref": "#/$defs/__schema32"
                     },
                     "glob": {
-                      "$ref": "#/$defs/__schema23"
+                      "$ref": "#/$defs/__schema33"
                     },
                     "maxMatches": {
-                      "$ref": "#/$defs/__schema24"
+                      "$ref": "#/$defs/__schema34"
                     }
                   },
                   "required": [
@@ -712,16 +1151,16 @@
                   "type": "object",
                   "properties": {
                     "path": {
-                      "$ref": "#/$defs/__schema18"
+                      "$ref": "#/$defs/__schema28"
                     },
                     "query": {
-                      "$ref": "#/$defs/__schema22"
+                      "$ref": "#/$defs/__schema32"
                     },
                     "glob": {
-                      "$ref": "#/$defs/__schema23"
+                      "$ref": "#/$defs/__schema33"
                     },
                     "maxMatches": {
-                      "$ref": "#/$defs/__schema24"
+                      "$ref": "#/$defs/__schema34"
                     }
                   },
                   "required": [
@@ -799,13 +1238,13 @@
                       "$ref": "#/$defs/__schema10"
                     },
                     "path": {
-                      "$ref": "#/$defs/__schema19"
+                      "$ref": "#/$defs/__schema29"
                     },
                     "content": {
-                      "$ref": "#/$defs/__schema25"
+                      "$ref": "#/$defs/__schema35"
                     },
                     "createOnly": {
-                      "$ref": "#/$defs/__schema26"
+                      "$ref": "#/$defs/__schema36"
                     }
                   },
                   "required": [
@@ -820,13 +1259,13 @@
                   "type": "object",
                   "properties": {
                     "path": {
-                      "$ref": "#/$defs/__schema18"
+                      "$ref": "#/$defs/__schema28"
                     },
                     "content": {
-                      "$ref": "#/$defs/__schema25"
+                      "$ref": "#/$defs/__schema35"
                     },
                     "createOnly": {
-                      "$ref": "#/$defs/__schema26"
+                      "$ref": "#/$defs/__schema36"
                     }
                   },
                   "required": [
@@ -904,16 +1343,16 @@
                       "$ref": "#/$defs/__schema10"
                     },
                     "path": {
-                      "$ref": "#/$defs/__schema19"
+                      "$ref": "#/$defs/__schema29"
                     },
                     "oldText": {
-                      "$ref": "#/$defs/__schema27"
+                      "$ref": "#/$defs/__schema37"
                     },
                     "newText": {
-                      "$ref": "#/$defs/__schema28"
+                      "$ref": "#/$defs/__schema38"
                     },
                     "replaceAll": {
-                      "$ref": "#/$defs/__schema29"
+                      "$ref": "#/$defs/__schema39"
                     }
                   },
                   "required": [
@@ -929,16 +1368,16 @@
                   "type": "object",
                   "properties": {
                     "path": {
-                      "$ref": "#/$defs/__schema18"
-                    },
-                    "oldText": {
-                      "$ref": "#/$defs/__schema27"
-                    },
-                    "newText": {
                       "$ref": "#/$defs/__schema28"
                     },
+                    "oldText": {
+                      "$ref": "#/$defs/__schema37"
+                    },
+                    "newText": {
+                      "$ref": "#/$defs/__schema38"
+                    },
                     "replaceAll": {
-                      "$ref": "#/$defs/__schema29"
+                      "$ref": "#/$defs/__schema39"
                     }
                   },
                   "required": [
@@ -1017,10 +1456,10 @@
                       "$ref": "#/$defs/__schema10"
                     },
                     "path": {
-                      "$ref": "#/$defs/__schema19"
+                      "$ref": "#/$defs/__schema29"
                     },
                     "patch": {
-                      "$ref": "#/$defs/__schema30"
+                      "$ref": "#/$defs/__schema40"
                     }
                   },
                   "required": [
@@ -1034,10 +1473,10 @@
                   "type": "object",
                   "properties": {
                     "path": {
-                      "$ref": "#/$defs/__schema18"
+                      "$ref": "#/$defs/__schema28"
                     },
                     "patch": {
-                      "$ref": "#/$defs/__schema30"
+                      "$ref": "#/$defs/__schema40"
                     }
                   },
                   "required": [
@@ -1114,16 +1553,16 @@
                       "$ref": "#/$defs/__schema10"
                     },
                     "cwd": {
-                      "$ref": "#/$defs/__schema15"
+                      "$ref": "#/$defs/__schema25"
                     },
                     "command": {
-                      "$ref": "#/$defs/__schema31"
+                      "$ref": "#/$defs/__schema41"
                     },
                     "timeoutMs": {
-                      "$ref": "#/$defs/__schema32"
+                      "$ref": "#/$defs/__schema42"
                     },
                     "env": {
-                      "$ref": "#/$defs/__schema33"
+                      "$ref": "#/$defs/__schema43"
                     }
                   },
                   "required": [
@@ -1139,16 +1578,16 @@
                   "type": "object",
                   "properties": {
                     "cwd": {
-                      "$ref": "#/$defs/__schema18"
+                      "$ref": "#/$defs/__schema28"
                     },
                     "command": {
-                      "$ref": "#/$defs/__schema31"
+                      "$ref": "#/$defs/__schema41"
                     },
                     "timeoutMs": {
-                      "$ref": "#/$defs/__schema32"
+                      "$ref": "#/$defs/__schema42"
                     },
                     "env": {
-                      "$ref": "#/$defs/__schema33"
+                      "$ref": "#/$defs/__schema43"
                     }
                   },
                   "required": [
@@ -1325,7 +1764,7 @@
                       "$ref": "#/$defs/__schema8"
                     },
                     "cwd": {
-                      "$ref": "#/$defs/__schema18"
+                      "$ref": "#/$defs/__schema28"
                     },
                     "templateId": {
                       "type": "string",
@@ -1446,7 +1885,7 @@
                       "$ref": "#/$defs/__schema8"
                     },
                     "cwd": {
-                      "$ref": "#/$defs/__schema18"
+                      "$ref": "#/$defs/__schema28"
                     },
                     "templateId": {
                       "default": "test",
@@ -1530,7 +1969,7 @@
               "type": "object",
               "properties": {
                 "jobId": {
-                  "$ref": "#/$defs/__schema34"
+                  "$ref": "#/$defs/__schema44"
                 }
               },
               "required": [
@@ -1599,7 +2038,7 @@
               "type": "object",
               "properties": {
                 "jobId": {
-                  "$ref": "#/$defs/__schema34"
+                  "$ref": "#/$defs/__schema44"
                 }
               },
               "required": [
@@ -1668,7 +2107,7 @@
               "type": "object",
               "properties": {
                 "jobId": {
-                  "$ref": "#/$defs/__schema34"
+                  "$ref": "#/$defs/__schema44"
                 }
               },
               "required": [
@@ -1849,91 +2288,174 @@
       "additionalProperties": false
     },
     "__schema15": {
-      "type": "string",
-      "maxLength": 4096
+      "type": "object",
+      "properties": {
+        "resourceId": {
+          "$ref": "#/$defs/__schema16"
+        },
+        "text": {
+          "$ref": "#/$defs/__schema17"
+        },
+        "contentDescription": {
+          "$ref": "#/$defs/__schema18"
+        },
+        "className": {
+          "$ref": "#/$defs/__schema19"
+        },
+        "packageName": {
+          "$ref": "#/$defs/__schema20"
+        },
+        "match": {
+          "$ref": "#/$defs/__schema21"
+        },
+        "index": {
+          "$ref": "#/$defs/__schema22"
+        }
+      },
+      "required": [
+        "match",
+        "index"
+      ],
+      "additionalProperties": false
     },
     "__schema16": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 512
+      "maxLength": 256
     },
     "__schema17": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "__schema18": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "__schema19": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "__schema20": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "__schema21": {
+      "default": "exact",
+      "type": "string",
+      "enum": [
+        "exact",
+        "contains"
+      ]
+    },
+    "__schema22": {
+      "default": 0,
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "__schema23": {
+      "type": "string",
+      "enum": [
+        "click",
+        "long_click",
+        "focus",
+        "scroll_forward",
+        "scroll_backward",
+        "set_text"
+      ]
+    },
+    "__schema24": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "__schema25": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "__schema26": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "__schema27": {
       "default": 1000,
       "type": "integer",
       "minimum": 1,
       "maximum": 10000
     },
-    "__schema18": {
+    "__schema28": {
       "type": "string",
       "maxLength": 4096
     },
-    "__schema19": {
+    "__schema29": {
       "type": "string",
       "minLength": 1
     },
-    "__schema20": {
+    "__schema30": {
       "default": "utf8",
       "type": "string",
       "const": "utf8"
     },
-    "__schema21": {
+    "__schema31": {
       "default": 1048576,
       "type": "integer",
       "minimum": 1,
       "maximum": 10485760
     },
-    "__schema22": {
+    "__schema32": {
       "type": "string",
       "minLength": 1,
       "maxLength": 1000
     },
-    "__schema23": {
+    "__schema33": {
       "type": "string",
       "minLength": 1,
       "maxLength": 512
     },
-    "__schema24": {
+    "__schema34": {
       "default": 1000,
       "type": "integer",
       "minimum": 1,
       "maximum": 10000
     },
-    "__schema25": {
+    "__schema35": {
       "type": "string",
       "maxLength": 10485760
     },
-    "__schema26": {
+    "__schema36": {
       "default": false,
       "type": "boolean"
     },
-    "__schema27": {
+    "__schema37": {
       "type": "string",
       "minLength": 1
     },
-    "__schema28": {
+    "__schema38": {
       "type": "string"
     },
-    "__schema29": {
+    "__schema39": {
       "default": false,
       "type": "boolean"
     },
-    "__schema30": {
+    "__schema40": {
       "type": "string",
       "minLength": 1,
       "maxLength": 10485760
     },
-    "__schema31": {
+    "__schema41": {
       "type": "string",
       "minLength": 1,
       "maxLength": 32768
     },
-    "__schema32": {
+    "__schema42": {
       "default": 120000,
       "type": "integer",
       "minimum": 100,
       "maximum": 1800000
     },
-    "__schema33": {
+    "__schema43": {
       "default": {},
       "type": "object",
       "propertyNames": {
@@ -1945,11 +2467,11 @@
         "maxLength": 8192
       }
     },
-    "__schema34": {
+    "__schema44": {
       "type": "string",
       "pattern": "^job_[a-z0-9][a-z0-9_-]{2,127}$"
     },
-    "__schema35": {
+    "__schema45": {
       "type": "object",
       "properties": {
         "schemaVersion": {

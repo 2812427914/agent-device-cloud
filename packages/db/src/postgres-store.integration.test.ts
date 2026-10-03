@@ -274,6 +274,7 @@ describe("PostgresStore", () => {
       nodeId: "node_postgres",
       contentType: "text/plain",
       sha256: `sha256:${"b".repeat(64)}`,
+      byteSize: Buffer.byteLength("artifact-body"),
       data: Buffer.from("artifact-body"),
       createdAt: item.createdAt
     });
@@ -292,6 +293,7 @@ describe("PostgresStore", () => {
         restarted.listAudit("acct_primary", item.invocation.invocationId)
       ).resolves.toHaveLength(1);
       const artifact = await restarted.getArtifact("artifact_0123456789abcdef0123456789abcdef.log");
+      expect(artifact?.byteSize).toBe(Buffer.byteLength("artifact-body"));
       expect(artifact?.data.toString("utf8")).toBe("artifact-body");
     } finally {
       await restarted.close();

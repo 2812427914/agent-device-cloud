@@ -19,6 +19,7 @@ import {
 import { evaluatePolicy, sha256 } from "@adc/policy";
 import { createMcpServer } from "@adc/mcp-adapter";
 import {
+  ArtifactIdSchema,
   CapabilitySchema,
   ErrorCodes,
   InvocationIdSchema,
@@ -61,6 +62,7 @@ import {
 } from "./distribution.ts";
 import { NodeWakeHub } from "./node-wake.ts";
 import { PublicSite, type HostedAnalyticsOptions } from "./public-site.ts";
+import type { AssetStore } from "./asset-store.ts";
 
 export interface ControlPlaneOptions {
   store: Store;
@@ -75,6 +77,7 @@ export interface ControlPlaneOptions {
   /** Opt-in cross-origin origins for API consumers. See registerCors(). */
   corsOrigins?: string[] | "*";
   analytics?: HostedAnalyticsOptions;
+  assetStore?: AssetStore;
 }
 
 function invocationPath(invocation: Invocation, node: NodeRecord | undefined): string | undefined {
@@ -1062,7 +1065,7 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       const body = z
         .object({
           dispatchId: z.string(),
-          artifactId: z.string().regex(/^artifact_[a-f0-9]{32}\.log$/),
+          artifactId: ArtifactIdSchema,
           contentType: z.string().min(1).max(128),
           sha256: z.string().regex(/^sha256:[a-f0-9]{64}$/),
           dataBase64: z.string().max(35 * 1024 * 1024)
@@ -1073,6 +1076,18 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       if (!dispatch || dispatch.nodeId !== nodeId) {
         return apiError(reply, 404, ErrorCodes.NOT_FOUND, "dispatch was not found");
       }
+      const image = body.artifactId.endsWith(".png");
+      if (
+        (image && body.contentType !== "image/png") ||
+        (!image && !body.contentType.toLowerCase().startsWith("text/plain"))
+      ) {
+        return apiError(
+          reply,
+          400,
+          ErrorCodes.INVALID_REQUEST,
+          "artifact extension and content type do not match"
+        );
+      }
       const data = Buffer.from(body.dataBase64, "base64");
       if (data.byteLength > 25 * 1024 * 1024) {
         return apiError(reply, 413, ErrorCodes.INVALID_REQUEST, "artifact exceeds upload limit");
@@ -1081,6 +1096,17 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       if (!secureEqual(contentHash, body.sha256)) {
         return apiError(reply, 400, ErrorCodes.INVALID_REQUEST, "artifact hash mismatch");
       }
+      const external = image;
+      if (external && !options.assetStore) {
+        return apiError(
+          reply,
+          503,
+          ErrorCodes.OFFLINE,
+          "image asset storage is not configured",
+          true
+        );
+      }
+      if (external) await options.assetStore!.put(body.sha256, data);
       await options.store.putArtifact({
         artifactId: body.artifactId,
         accountId: dispatch.invocation.accountId,
@@ -1088,7 +1114,8 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
         nodeId,
         contentType: body.contentType,
         sha256: body.sha256,
-        data,
+        byteSize: data.byteLength,
+        data: external ? Buffer.alloc(0) : data,
         createdAt: now().toISOString()
       });
       return { accepted: true, artifactId: body.artifactId };
@@ -1639,10 +1666,28 @@ export async function createControlPlane(options: ControlPlaneOptions): Promise<
       if (!visibleTask(request, dispatch)) {
         return apiError(reply, 404, ErrorCodes.NOT_FOUND, "artifact was not found");
       }
+      let data = artifact.data;
+      if (artifact.contentType === "image/png" && data.byteLength === 0) {
+        if (!options.assetStore) {
+          return apiError(
+            reply,
+            503,
+            ErrorCodes.OFFLINE,
+            "image asset storage is unavailable",
+            true
+          );
+        }
+        try {
+          data = await options.assetStore.get(artifact.sha256);
+        } catch (error) {
+          requestLogError(app, error);
+          return apiError(reply, 503, ErrorCodes.OFFLINE, "image asset is unavailable", true);
+        }
+      }
       return reply
         .type(artifact.contentType)
         .header("content-disposition", `attachment; filename="${artifact.artifactId}"`)
-        .send(artifact.data);
+        .send(data);
     }
   );
 

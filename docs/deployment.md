@@ -20,6 +20,7 @@ anonymous administration endpoint is created. Use the [README](../README.md) for
 | `ADC_CONSOLE_DIR`                                  | Optional built console path; defaults to `apps/console/dist`                               |
 | `ADC_NODE_RELEASE_DIR`                             | Local downloadable client directory; defaults to `dist/node`                               |
 | `ADC_NODE_DOWNLOAD_URL`                            | Optional external release directory on a static website/CDN/GitHub Releases                |
+| `ADC_ASSET_DIR`                                    | Persistent content-addressed storage for image artifacts; required for screen capture      |
 | `HOST`, `PORT`                                     | Default API bind is `127.0.0.1:8787`; Compose uses its private network                     |
 | `ADC_NODE_CONFIG`                                  | Local device configuration override                                                        |
 | `ADC_CONFIG`                                       | Local CLI token configuration override; management session uses a separate `.session` file |
@@ -121,9 +122,10 @@ on persistent local storage; Unix config and ledger files use mode 0600. See
 ## Backup and restore
 
 Back up the whole ADC database: it includes users, password hashes, sessions, OAuth token state,
-pairing records, grants, dispatches, audit and current artifact blobs. Also back up `.env` securely
-and preserve device configurations/receipt state on their respective devices. Do not upload device
-private keys to the control plane.
+pairing records, grants, dispatches, audit, artifact metadata and text artifacts. Back up
+`ADC_ASSET_DIR` with the same recovery point because image artifacts are content-addressed files
+there. Also back up `.env` securely and preserve device configurations/receipt state on their
+respective devices. Do not upload device private keys to the control plane.
 
 Example database backup, from the repository directory:
 
@@ -175,8 +177,10 @@ bootstrap endpoint that grants control of old data.
 
 ## Current limits
 
-Artifacts currently use PostgreSQL blobs, capped at 25 MiB each; account storage quotas, retention
-jobs and S3 are not implemented. Monitor database size and disk usage. This release has one active
-execution per foreground daemon, no OS-enforced CPU/memory/network sandbox, and no multi-region
-service orchestration. The implementation tests run against real PostgreSQL; container image startup,
-TLS issuance and SMTP deliverability must also be verified in the target deployment.
+Text artifacts currently use PostgreSQL blobs. PNG screen captures use `ADC_ASSET_DIR`, with only
+their metadata retained in PostgreSQL. Each artifact is capped at 25 MiB; account storage quotas,
+retention jobs and an S3 adapter are not implemented. Monitor both database and asset-directory disk
+usage. This release has one active execution per foreground daemon, no OS-enforced
+CPU/memory/network sandbox, and no multi-region service orchestration. The implementation tests run
+against real PostgreSQL; container image startup, TLS issuance and SMTP deliverability must also be
+verified in the target deployment.

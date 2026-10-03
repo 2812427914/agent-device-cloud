@@ -302,12 +302,15 @@ claim exactly-once execution.
 | Device private key                         | No            | Yes    |
 | Unrequested file content                   | No            | Yes    |
 | Invocation arguments and returned result   | Yes           | Yes    |
-| Large returned artifact                    | Yes, current  | Yes    |
+| Artifact metadata                          | Yes           | Yes    |
+| Screenshot image bytes                     | CAS directory | Yes    |
+| Text artifact bytes                        | PostgreSQL    | Yes    |
 | Local execution ledger                     | No            | Yes    |
 | Dispatch and account audit                 | Yes           | No     |
 
-Artifacts currently use PostgreSQL blobs. External object storage, quotas and retention jobs are
-planned, not implemented.
+PNG screenshots use a content-addressed asset directory and retain only metadata in PostgreSQL.
+Existing text artifacts use PostgreSQL blobs. An S3-compatible adapter, quotas and retention jobs
+remain planned.
 
 ## Current and planned boundaries
 
@@ -318,14 +321,15 @@ flowchart LR
     MACLINUX["macOS / Linux / Windows Node"]
     ANDROID["Android native capability Node MVP"]
     PROCESS["Restricted process / full trust"]
-    POSTGRES["PostgreSQL dispatch + artifacts"]
+    POSTGRES["PostgreSQL dispatch + artifact metadata/text"]
+    ASSETS["Content-addressed image assets"]
     INTERFACES["MCP / CLI / Skill / SDK"]
   end
 
   subgraph Next["Next: production hardening"]
     SIGNED["Signed releases"]
     KEYCHAIN["Keychain / keyring"]
-    OBJECTS["External artifact storage + quotas"]
+    OBJECTS["S3 adapter + quotas"]
     DOCTOR["Doctor + backup automation"]
   end
 

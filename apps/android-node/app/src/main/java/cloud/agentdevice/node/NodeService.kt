@@ -6,8 +6,10 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
 import java.time.Instant
@@ -37,19 +39,48 @@ class NodeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopNode()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_STOP -> {
+                stopNode()
+                return START_NOT_STICKY
+            }
+            ACTION_SCREEN_CAPTURE_GRANTED -> {
+                startForegroundNotification(screenCapture = true)
+                val resultCode = intent.getIntExtra(EXTRA_SCREEN_CAPTURE_RESULT_CODE, 0)
+                try {
+                    val captureData =
+                        intent.getParcelableExtra<Intent>(EXTRA_SCREEN_CAPTURE_DATA)
+                            ?: throw IllegalArgumentException(
+                                "Android did not return screen capture consent data."
+                            )
+                    ScreenCaptureSession.start(this, resultCode, captureData)
+                } catch (error: Exception) {
+                    store.setCapabilityEnabled(CapabilityGroup.SCREEN_CAPTURE, false)
+                    sendBroadcast(
+                        Intent(ScreenCaptureSession.ACTION_CAPABILITY_CHANGED)
+                            .setPackage(packageName)
+                            .putExtra(EXTRA_ERROR, error.message)
+                    )
+                    startForegroundNotification(screenCapture = false)
+                }
+                startPollingIfNeeded()
+                return START_STICKY
+            }
+            ACTION_SCREEN_CAPTURE_STOP -> {
+                ScreenCaptureSession.stop(this)
+                startForegroundNotification(screenCapture = false)
+                startPollingIfNeeded()
+                return START_STICKY
+            }
         }
-        startForeground(NOTIFICATION_ID, serviceNotification(getString(R.string.node_service_idle)))
-        if (running.compareAndSet(false, true)) {
-            executor.execute(::pollLoop)
-        }
+        startForegroundNotification(screenCapture = ScreenCaptureSession.isActive())
+        startPollingIfNeeded()
         return START_STICKY
     }
 
     override fun onDestroy() {
         running.set(false)
+        ScreenCaptureSession.stop()
         executor.shutdownNow()
         leaseExecutor.shutdownNow()
         super.onDestroy()
@@ -60,6 +91,10 @@ class NodeService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun startPollingIfNeeded() {
+        if (running.compareAndSet(false, true)) executor.execute(::pollLoop)
+    }
 
     private fun pollLoop() {
         var backoffMs = 2_000L
@@ -140,9 +175,12 @@ class NodeService : Service() {
             TimeUnit.MILLISECONDS
         )
         try {
-            val result = execution.execute(config.nodeId, dispatch, isCancelled)
+            val executionResult = execution.execute(config.nodeId, dispatch, isCancelled)
             if (leaseValid.get() && System.currentTimeMillis() < leaseExpiresAt.get()) {
-                protocol.complete(config, dispatchId, leaseToken, result)
+                executionResult.artifacts.forEach {
+                    protocol.uploadArtifact(config, dispatchId, it)
+                }
+                protocol.complete(config, dispatchId, leaseToken, executionResult.result)
             }
         } finally {
             renewal.cancel(true)
@@ -159,6 +197,7 @@ class NodeService : Service() {
 
     private fun stopNode() {
         running.set(false)
+        ScreenCaptureSession.stop(this)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         publishStatus(false, "Node stopped")
@@ -197,6 +236,22 @@ class NodeService : Service() {
             .build()
     }
 
+    private fun startForegroundNotification(screenCapture: Boolean) {
+        val types =
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                (if (screenCapture) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                } else {
+                    0
+                })
+        ServiceCompat.startForeground(
+            this,
+            NOTIFICATION_ID,
+            serviceNotification(getString(R.string.node_service_idle)),
+            types
+        )
+    }
+
     private fun updateNotification(text: String) {
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, serviceNotification(text))
@@ -217,6 +272,12 @@ class NodeService : Service() {
         const val EXTRA_ERROR = "error"
         private const val ACTION_START = "cloud.agentdevice.node.START"
         private const val ACTION_STOP = "cloud.agentdevice.node.STOP"
+        private const val ACTION_SCREEN_CAPTURE_GRANTED =
+            "cloud.agentdevice.node.SCREEN_CAPTURE_GRANTED"
+        private const val ACTION_SCREEN_CAPTURE_STOP =
+            "cloud.agentdevice.node.SCREEN_CAPTURE_STOP"
+        private const val EXTRA_SCREEN_CAPTURE_RESULT_CODE = "screenCaptureResultCode"
+        private const val EXTRA_SCREEN_CAPTURE_DATA = "screenCaptureData"
         private const val SERVICE_CHANNEL = "adc-node-service"
         private const val NOTIFICATION_ID = 4101
         private const val POLL_INTERVAL_MS = 15_000L
@@ -232,6 +293,23 @@ class NodeService : Service() {
         fun stop(context: Context) {
             context.startService(
                 Intent(context, NodeService::class.java).setAction(ACTION_STOP)
+            )
+        }
+
+        fun startScreenCapture(context: Context, resultCode: Int, data: Intent) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, NodeService::class.java)
+                    .setAction(ACTION_SCREEN_CAPTURE_GRANTED)
+                    .putExtra(EXTRA_SCREEN_CAPTURE_RESULT_CODE, resultCode)
+                    .putExtra(EXTRA_SCREEN_CAPTURE_DATA, data)
+            )
+        }
+
+        fun stopScreenCapture(context: Context) {
+            context.startService(
+                Intent(context, NodeService::class.java)
+                    .setAction(ACTION_SCREEN_CAPTURE_STOP)
             )
         }
     }

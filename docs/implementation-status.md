@@ -41,7 +41,11 @@
   discovery, stable schema-versioned Tool IDs, local `tools/call` forwarding and hot reload
 - Native Android Mobile Node source with P-256 Android Keystore identity, signed polling,
   capability availability, foreground service operation and local execution for battery, network,
-  foreground location and notifications
+  foreground location, notifications, screen capture, UI inspection/control, gestures and system
+  navigation
+- Per-device Android capability switches with high-risk screen capture and UI control disabled by
+  default, MediaProjection consent and Accessibility service enforcement
+- Content-addressed PNG artifact storage with PostgreSQL metadata and hash verification
 - MCP tool projection deduplicates logical tools, requires an explicit model-selected Node for
   device execution and restricts each target enum to granted devices advertising that capability
 - Dynamic Provider tools use their original JSON Schema, default to execution risk, require
@@ -79,7 +83,7 @@
 
 ## Verified
 
-- 160 passing tests across 35 files on Node.js 24; one opt-in macOS service test skipped (161 total)
+- 164 passing tests across 36 files on Node.js 24; one opt-in macOS service test skipped (165 total)
 - Real PostgreSQL migration, concurrent `SKIP LOCKED` claims and restart persistence
 - Pairing/replay/revoke behavior
 - Symlink escape, secret redaction, command denial, timeout/cancel and output limits
@@ -89,6 +93,8 @@
 - End-to-end Agent MCP → Control Plane → Node → local MCP Provider execution and receipt persistence
 - Android debug APK compilation, mobile canonical-JSON contract tests and Control Plane acceptance
   of Android/P-256 capability advertisements
+- Physical Xiaomi/MIUI production execution for battery, network, foreground GPS location and
+  notifications after disconnecting USB, including persisted receipts
 - Two-user API isolation, persisted login/restart, verification, password reset and session invalidation
 - CLI password fallback/access-key import via real HTTP and child process; mode-0600 storage and
   authority separation
@@ -138,8 +144,9 @@ compression and PostgreSQL startup from starving short-lease tests.
 ## Not implemented
 
 - CIMD and named third-party MCP client interoperability certification
-- Android installation and execution on physical Xiaomi/MIUI/HyperOS hardware, push wake,
-  background location mode, camera/media capabilities and signed release distribution
+- Physical Android verification of screen capture, UI inspection/control, gestures and system
+  navigation; push wake, background location mode, camera/media capabilities and signed release
+  distribution
 - Keychain/keyring-backed Node key storage
 - Linux container hard-isolation profile
 - S3-compatible artifact adapter, account storage/compute quotas and retention jobs

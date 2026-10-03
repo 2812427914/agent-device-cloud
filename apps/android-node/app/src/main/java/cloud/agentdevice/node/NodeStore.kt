@@ -18,6 +18,17 @@ data class NodeConfig(
     val label: String
 )
 
+enum class CapabilityGroup(
+    val preferenceKey: String,
+    val defaultEnabled: Boolean
+) {
+    DEVICE_STATUS("capability_device_status", true),
+    LOCATION("capability_location", true),
+    NOTIFICATIONS("capability_notifications", true),
+    SCREEN_CAPTURE("capability_screen_capture", false),
+    UI_CONTROL("capability_ui_control", false)
+}
+
 class NodeStore(context: Context) {
     private val preferences =
         context.getSharedPreferences("adc_mobile_node", Context.MODE_PRIVATE)
@@ -61,6 +72,15 @@ class NodeStore(context: Context) {
     fun lastSeenAt(): String? = preferences.getString("lastSeenAt", null)
 
     fun lastError(): String? = preferences.getString("lastError", null)
+
+    fun isCapabilityEnabled(group: CapabilityGroup): Boolean =
+        preferences.getBoolean(group.preferenceKey, group.defaultEnabled)
+
+    fun setCapabilityEnabled(group: CapabilityGroup, enabled: Boolean) {
+        check(preferences.edit().putBoolean(group.preferenceKey, enabled).commit()) {
+            "Unable to persist the local capability setting"
+        }
+    }
 
     fun readIdempotency(key: String): String? =
         preferences.getString("$IDEMPOTENCY_PREFIX$key", null)

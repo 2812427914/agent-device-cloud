@@ -15,42 +15,46 @@ class MobileExecutionEngine(
         nodeId: String,
         dispatch: JSONObject,
         cancelled: () -> Boolean = { false }
-    ): JSONObject {
+    ): MobileExecutionResult {
         val invocation = dispatch.getJSONObject("invocation")
         val policy = dispatch.getJSONObject("policyDecision")
         val startedAt = Instant.now()
         val tool = invocation.getString("tool")
         val args = invocation.optJSONObject("args") ?: JSONObject()
-        val sideEffect = tool == "notification.show"
+        val sideEffect = tool in SIDE_EFFECT_TOOLS
         val argsHash = sha256(args)
 
         if (policy.getString("outcome") != "allow") {
-            return result(
-                nodeId,
-                invocation,
-                policy,
-                "denied",
-                startedAt,
-                argsHash,
-                null,
-                error("denied", policy.optString("explanation", "Operation denied."), false),
-                sideEffect,
-                false
+            return MobileExecutionResult(
+                result(
+                    nodeId,
+                    invocation,
+                    policy,
+                    "denied",
+                    startedAt,
+                    argsHash,
+                    null,
+                    error("denied", policy.optString("explanation", "Operation denied."), false),
+                    sideEffect,
+                    false
+                )
             )
         }
         val target = invocation.getJSONObject("target")
         if (target.has("nodeId") && target.getString("nodeId") != nodeId) {
-            return result(
-                nodeId,
-                invocation,
-                policy,
-                "denied",
-                startedAt,
-                argsHash,
-                null,
-                error("denied", "Invocation targets a different device.", false),
-                sideEffect,
-                false
+            return MobileExecutionResult(
+                result(
+                    nodeId,
+                    invocation,
+                    policy,
+                    "denied",
+                    startedAt,
+                    argsHash,
+                    null,
+                    error("denied", "Invocation targets a different device.", false),
+                    sideEffect,
+                    false
+                )
             )
         }
 
@@ -58,89 +62,101 @@ class MobileExecutionEngine(
             try {
                 if (sideEffect) beginIdempotent(invocation, tool, args) else null
             } catch (exception: CapabilityException) {
-                return result(
+                return MobileExecutionResult(
+                    result(
+                        nodeId,
+                        invocation,
+                        policy,
+                        if (exception.code == "unknown_outcome") "unknown_outcome" else "failed",
+                        startedAt,
+                        argsHash,
+                        null,
+                        error(exception.code, exception.message, exception.retryable),
+                        sideEffect,
+                        false
+                    )
+                )
+            }
+        if (ledger?.replay != null) {
+            return MobileExecutionResult(replay(ledger.replay, invocation))
+        }
+        if (ledger?.unknown == true) {
+            return MobileExecutionResult(
+                result(
                     nodeId,
                     invocation,
                     policy,
-                    if (exception.code == "unknown_outcome") "unknown_outcome" else "failed",
+                    "unknown_outcome",
                     startedAt,
                     argsHash,
                     null,
-                    error(exception.code, exception.message, exception.retryable),
+                    error(
+                        "unknown_outcome",
+                        "A prior attempt started without a durable terminal result.",
+                        false
+                    ),
                     sideEffect,
                     false
                 )
-            }
-        if (ledger?.replay != null) return replay(ledger.replay, invocation)
-        if (ledger?.unknown == true) {
-            return result(
-                nodeId,
-                invocation,
-                policy,
-                "unknown_outcome",
-                startedAt,
-                argsHash,
-                null,
-                error(
-                    "unknown_outcome",
-                    "A prior attempt started without a durable terminal result.",
-                    false
-                ),
-                sideEffect,
-                false
             )
         }
 
         if (Instant.parse(invocation.getString("expiresAt")).isBefore(Instant.now())) {
-            return completeLedger(
-                ledger,
-                result(
+            return MobileExecutionResult(
+                completeLedger(
+                    ledger,
+                    result(
+                        nodeId,
+                        invocation,
+                        policy,
+                        "failed",
+                        startedAt,
+                        argsHash,
+                        null,
+                        error("expired", "Invocation expired before mobile execution.", false),
+                        sideEffect,
+                        false
+                    ),
                     nodeId,
                     invocation,
                     policy,
-                    "failed",
                     startedAt,
                     argsHash,
-                    null,
-                    error("expired", "Invocation expired before mobile execution.", false),
-                    sideEffect,
-                    false
-                ),
-                nodeId,
-                invocation,
-                policy,
-                startedAt,
-                argsHash,
-                sideEffect
+                    sideEffect
+                )
             )
         }
         if (cancelled()) {
-            return completeLedger(
-                ledger,
-                result(
+            return MobileExecutionResult(
+                completeLedger(
+                    ledger,
+                    result(
+                        nodeId,
+                        invocation,
+                        policy,
+                        "cancelled",
+                        startedAt,
+                        argsHash,
+                        null,
+                        error("cancelled", "Invocation was cancelled.", false),
+                        sideEffect,
+                        false
+                    ),
                     nodeId,
                     invocation,
                     policy,
-                    "cancelled",
                     startedAt,
                     argsHash,
-                    null,
-                    error("cancelled", "Invocation was cancelled.", false),
-                    sideEffect,
-                    false
-                ),
-                nodeId,
-                invocation,
-                policy,
-                startedAt,
-                argsHash,
-                sideEffect
+                    sideEffect
+                )
             )
         }
 
+        var artifacts = emptyList<MobileArtifact>()
         val completed =
             try {
-                val output = registry.execute(tool, args, cancelled)
+                val capability = registry.execute(tool, args, cancelled)
+                artifacts = capability.artifacts
                 result(
                     nodeId,
                     invocation,
@@ -148,10 +164,11 @@ class MobileExecutionEngine(
                     "succeeded",
                     startedAt,
                     argsHash,
-                    output,
+                    capability.output,
                     null,
                     sideEffect,
-                    false
+                    false,
+                    artifacts.map(MobileArtifact::artifactId)
                 )
             } catch (exception: CapabilityException) {
                 result(
@@ -189,15 +206,18 @@ class MobileExecutionEngine(
                     false
                 )
             }
-        return completeLedger(
-            ledger,
-            completed,
-            nodeId,
-            invocation,
-            policy,
-            startedAt,
-            argsHash,
-            sideEffect
+        return MobileExecutionResult(
+            completeLedger(
+                ledger,
+                completed,
+                nodeId,
+                invocation,
+                policy,
+                startedAt,
+                argsHash,
+                sideEffect
+            ),
+            artifacts
         )
     }
 
@@ -306,7 +326,8 @@ class MobileExecutionEngine(
         output: JSONObject?,
         error: JSONObject?,
         sideEffect: Boolean,
-        replayed: Boolean
+        replayed: Boolean,
+        artifactRefs: List<String> = emptyList()
     ): JSONObject {
         val completedAt = Instant.now()
         val receipt = JSONObject()
@@ -327,7 +348,7 @@ class MobileExecutionEngine(
                 "durationMs",
                 (completedAt.toEpochMilli() - startedAt.toEpochMilli()).coerceAtLeast(0)
             )
-            .put("artifactRefs", JSONArray())
+            .put("artifactRefs", JSONArray(artifactRefs))
         invocation.optString("idempotencyKey")
             .takeIf(String::isNotBlank)
             ?.let { receipt.put("idempotencyKeyHash", sha256Text(it)) }
@@ -352,6 +373,13 @@ class MobileExecutionEngine(
             .put("retryable", retryable)
 
     companion object {
+        private val SIDE_EFFECT_TOOLS = setOf(
+            "notification.show",
+            "ui.action",
+            "ui.gesture",
+            "device.navigation"
+        )
+
         fun sha256(value: Any?): String = sha256Text(NodeProtocol.canonicalJson(value))
 
         private fun sha256Text(value: String): String {

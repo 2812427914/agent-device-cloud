@@ -6,6 +6,7 @@ import { createControlPlane } from "./app.ts";
 import { createAuthentication } from "./auth.ts";
 import { createAccessService } from "./access.ts";
 import { parseCorsOrigins } from "./cors.ts";
+import { LocalContentAddressedAssetStore } from "./asset-store.ts";
 
 const databaseURL = process.env.DATABASE_URL;
 const secret = process.env.ADC_AUTH_SECRET;
@@ -80,11 +81,15 @@ const authentication = createAuthentication({
     : {})
 });
 const corsOrigins = parseCorsOrigins(process.env.ADC_CORS_ORIGINS);
+const assetStore = process.env.ADC_ASSET_DIR
+  ? new LocalContentAddressedAssetStore(process.env.ADC_ASSET_DIR)
+  : undefined;
 const app = await createControlPlane({
   store,
   access: createAccessService(authentication, new IdentityStore(store.pool)),
   logger: true,
   consoleDirectory,
+  ...(assetStore ? { assetStore } : {}),
   ...(corsOrigins ? { corsOrigins } : {}),
   ...(analyticsScriptUrl && analyticsDomain
     ? {

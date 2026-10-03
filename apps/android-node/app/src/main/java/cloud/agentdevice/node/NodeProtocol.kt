@@ -71,6 +71,22 @@ class NodeProtocol(
                 }
         )
 
+    fun uploadArtifact(
+        config: NodeConfig,
+        dispatchId: String,
+        artifact: MobileArtifact
+    ): JSONObject =
+        signedPost(
+            config,
+            "/api/v1/nodes/${config.nodeId}/artifacts",
+            JSONObject()
+                .put("dispatchId", dispatchId)
+                .put("artifactId", artifact.artifactId)
+                .put("contentType", artifact.contentType)
+                .put("sha256", artifact.sha256)
+                .put("dataBase64", Base64.encodeToString(artifact.data, Base64.NO_WRAP))
+        )
+
     private fun signedPost(config: NodeConfig, path: String, body: JSONObject): JSONObject {
         val timestamp = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
         val nonceBytes = ByteArray(18)

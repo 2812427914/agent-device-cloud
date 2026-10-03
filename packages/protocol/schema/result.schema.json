@@ -137,8 +137,13 @@
                 "device.status",
                 "device.battery.get",
                 "device.network.get",
+                "device.navigation",
                 "location.get",
                 "notification.show",
+                "screen.capture",
+                "ui.inspect",
+                "ui.action",
+                "ui.gesture",
                 "file.list",
                 "file.read",
                 "file.search",
@@ -215,8 +220,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 512
+            "pattern": "^artifact_[a-f0-9]{32}\\.(?:log|png)$"
           }
         }
       },

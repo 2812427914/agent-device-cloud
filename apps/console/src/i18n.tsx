@@ -539,6 +539,8 @@ export const zh = {
   devices: "台设备",
   "Read live state exposed by an authorized mobile device.": "读取已授权移动设备提供的实时状态。",
   "Present an authorized notification on a mobile device.": "在已授权的移动设备上显示通知。",
+  "Operate the visible Android interface within local Accessibility permission.":
+    "在本地无障碍权限范围内操作当前可见的 Android 界面。",
   "List, read and search files inside authorized folders.": "在授权目录中列出、读取和搜索文件。",
   "Create, replace, edit or patch files atomically.": "以原子方式创建、替换、编辑或修补文件。",
   "Run shell commands or locally configured command templates and tests.":

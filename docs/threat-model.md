@@ -3,6 +3,7 @@
 ## Assets
 
 - Device files, developer tools, local credentials and network access
+- Visible Android UI content, screenshots and user input authority
 - Device private keys, user sessions, passwords and Agent/OAuth tokens
 - Grants, root bindings, policy decisions and pairing codes
 - Dispatch state, receipts, artifacts and audit history
@@ -14,6 +15,7 @@
 3. Device Node to Control Plane over outbound authenticated WebSocket and HTTPS
 4. Device Node to local Tool Runtime
 5. Restricted child process to the host filesystem and network
+6. Android Node to MediaProjection and Accessibility system services
 
 The Control Plane is trusted to coordinate and authorize. Public resource addresses contain a
 device ID and absolute path; exposed root paths are account metadata stored in device capability
@@ -55,6 +57,9 @@ advertised-path boundaries, local writability, approvals, expiry, revocation and
 | Command injection                    | Shell command is an explicit capability; templates avoid interpolation; dangerous command classifier                                          | `restricted-process` is not hard isolation and an authorized shell can still affect host state                           |
 | Credential inheritance               | Rebuilt environment, reserved-variable rejection, non-login shell without startup profiles, per-call temp directory                           | Executed code can discover files accessible to the device OS user, including Node state outside the root                 |
 | Local MCP Provider compromise        | Provider endpoints/configuration stay on-device; custom tools require an explicit grant, target Node and idempotency key; HTTP requires TLS   | A granted Provider executes with its own process/service authority and can return sensitive data through the tool result |
+| Screen-content disclosure            | Screen capture is disabled locally by default, requires Android MediaProjection consent and a specific Agent tool grant                       | An authorized screenshot can contain messages, codes or other sensitive visible content                                  |
+| Unintended Android UI action         | UI control is disabled locally by default, requires manually enabled Accessibility, typed actions, idempotency and receipts                   | Accessibility can act with the device owner's UI authority; selector drift can target the wrong visible control          |
+| Sensitive Android text disclosure    | UI snapshots are bounded and redact password-node text; disabling the local switch immediately removes the capability                         | Non-password fields can still contain private content and Android/OEM classification is not complete                     |
 | Network exfiltration                 | Obvious network commands rejected by a heuristic classifier; authorization and audit                                                          | Arbitrary shell code can use networking; there is no hard network deny or injected proxy                                 |
 | Queue race or stale worker           | `SKIP LOCKED`, lease token, deadline watchdog, process-group cancellation and conditional terminal update                                     | Uninterruptible or escaped processes require OS-level isolation; terminal receipts remain the reconciliation authority   |
 | Receipt tampering                    | Receipt hashes input, output, policy and idempotency key; upload bound to signed Node request                                                 | Receipt signing as a standalone portable object is deferred                                                              |
@@ -76,6 +81,7 @@ database compromises the stored tokens.
 - Multiple matching devices without explicit affinity
 - Side effects without idempotency keys
 - Custom MCP tools absent from the selected device, missing an explicit target Node, or using cleartext non-loopback HTTP
+- Android screen/UI capabilities disabled in the App or missing current MediaProjection/Accessibility consent
 - Stale leases and mismatched receipts
 - User sessions used as Agent credentials, and Agent credentials used for management
 - Unknown CLI device clients/scopes and reused, denied or expired CLI login codes

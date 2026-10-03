@@ -7,17 +7,21 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Typeface
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import org.json.JSONObject
@@ -36,6 +40,26 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pairButton: MaterialButton
     private lateinit var startButton: MaterialButton
     private lateinit var stopButton: MaterialButton
+    private lateinit var deviceStatusSwitch: MaterialSwitch
+    private lateinit var locationSwitch: MaterialSwitch
+    private lateinit var notificationSwitch: MaterialSwitch
+    private lateinit var screenCaptureSwitch: MaterialSwitch
+    private lateinit var uiControlSwitch: MaterialSwitch
+    private var bindingSwitches = false
+
+    private val screenCaptureLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (!::store.isInitialized) return@registerForActivityResult
+            val granted = result.resultCode == RESULT_OK && result.data != null
+            store.setCapabilityEnabled(CapabilityGroup.SCREEN_CAPTURE, granted)
+            if (granted) {
+                NodeService.startScreenCapture(this, result.resultCode, result.data!!)
+            } else {
+                NodeService.stopScreenCapture(this)
+            }
+            bindCapabilitySwitches()
+            renderCapabilities()
+        }
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -43,6 +67,13 @@ class MainActivity : AppCompatActivity() {
                 intent?.getBooleanExtra(NodeService.EXTRA_CONNECTED, false) == true,
                 intent?.getStringExtra(NodeService.EXTRA_ERROR)
             )
+        }
+    }
+
+    private val capabilityReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            bindCapabilitySwitches()
+            renderCapabilities()
         }
     }
 
@@ -58,11 +89,21 @@ class MainActivity : AppCompatActivity() {
             IntentFilter(NodeService.ACTION_STATUS),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+        ContextCompat.registerReceiver(
+            this,
+            capabilityReceiver,
+            IntentFilter().apply {
+                addAction(AdcAccessibilityService.ACTION_CAPABILITY_CHANGED)
+                addAction(ScreenCaptureSession.ACTION_CAPABILITY_CHANGED)
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onResume() {
         super.onResume()
         AppVisibility.setForeground(true)
+        bindCapabilitySwitches()
         renderCapabilities()
         renderStoredStatus()
     }
@@ -74,6 +115,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         unregisterReceiver(statusReceiver)
+        unregisterReceiver(capabilityReceiver)
         executor.shutdownNow()
         super.onDestroy()
     }
@@ -150,17 +192,40 @@ class MainActivity : AppCompatActivity() {
         root.addView(controls.withMargins(bottom = 24))
 
         root.addView(sectionTitle("Phone permissions"))
-        root.addView(
-            text(
-                "Location is intentionally available only while this screen is open. Background trip mode is not part of this MVP.",
-                14f,
-                Typeface.NORMAL
-            ).withMargins(bottom = 10)
+        deviceStatusSwitch = capabilitySwitch(
+            "Device status",
+            CapabilityGroup.DEVICE_STATUS
         )
-        root.addView(button("Allow location") { requestLocation() })
-        if (Build.VERSION.SDK_INT >= 33) {
-            root.addView(button("Allow notifications") { requestNotifications() }.withMargins(top = 8))
-        }
+        locationSwitch = capabilitySwitch(
+            "Location while this app is open",
+            CapabilityGroup.LOCATION,
+            onEnabled = ::requestLocation
+        )
+        notificationSwitch = capabilitySwitch(
+            "Agent notifications",
+            CapabilityGroup.NOTIFICATIONS,
+            onEnabled = ::requestNotifications
+        )
+        screenCaptureSwitch = capabilitySwitch(
+            "Screen capture",
+            CapabilityGroup.SCREEN_CAPTURE,
+            onEnabled = ::requestScreenCapture,
+            onDisabled = { NodeService.stopScreenCapture(this) }
+        )
+        uiControlSwitch = capabilitySwitch(
+            "UI inspection and control",
+            CapabilityGroup.UI_CONTROL,
+            onEnabled = ::openAccessibilitySettings
+        )
+        root.addView(deviceStatusSwitch)
+        root.addView(locationSwitch.withMargins(top = 4))
+        root.addView(notificationSwitch.withMargins(top = 4))
+        root.addView(screenCaptureSwitch.withMargins(top = 4))
+        root.addView(uiControlSwitch.withMargins(top = 4))
+        root.addView(
+            button("Request Android permissions") { requestPhonePermissions() }
+                .withMargins(top = 8)
+        )
 
         root.addView(sectionTitle("Advertised capabilities").withMargins(top = 24))
         capabilities = text("", 14f, Typeface.NORMAL)
@@ -186,6 +251,7 @@ class MainActivity : AppCompatActivity() {
         pairButton.isEnabled = config == null
         startButton.isEnabled = config != null
         stopButton.isEnabled = config != null
+        bindCapabilitySwitches()
         renderStoredStatus()
         renderCapabilities()
     }
@@ -243,6 +309,26 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 33) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
         }
+    }
+
+    private fun requestPhonePermissions() {
+        val permissions = mutableListOf(
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+        if (Build.VERSION.SDK_INT >= 33) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        requestPermissions(permissions.toTypedArray(), REQUEST_PHONE_PERMISSIONS)
+    }
+
+    private fun requestScreenCapture() {
+        val manager = getSystemService(MediaProjectionManager::class.java)
+        screenCaptureLauncher.launch(manager.createScreenCaptureIntent())
+    }
+
+    private fun openAccessibilitySettings() {
+        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
     private fun confirmForget() {
@@ -342,6 +428,42 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { action() }
         }
 
+    private fun capabilitySwitch(
+        label: String,
+        group: CapabilityGroup,
+        onEnabled: (() -> Unit)? = null,
+        onDisabled: (() -> Unit)? = null
+    ): MaterialSwitch =
+        MaterialSwitch(this).apply {
+            text = label
+            isChecked = store.isCapabilityEnabled(group)
+            setOnCheckedChangeListener { _, checked ->
+                if (bindingSwitches) return@setOnCheckedChangeListener
+                store.setCapabilityEnabled(group, checked)
+                if (checked) onEnabled?.invoke() else onDisabled?.invoke()
+                renderCapabilities()
+            }
+        }
+
+    private fun bindCapabilitySwitches() {
+        if (!::deviceStatusSwitch.isInitialized) return
+        bindingSwitches = true
+        try {
+            deviceStatusSwitch.isChecked =
+                store.isCapabilityEnabled(CapabilityGroup.DEVICE_STATUS)
+            locationSwitch.isChecked =
+                store.isCapabilityEnabled(CapabilityGroup.LOCATION)
+            notificationSwitch.isChecked =
+                store.isCapabilityEnabled(CapabilityGroup.NOTIFICATIONS)
+            screenCaptureSwitch.isChecked =
+                store.isCapabilityEnabled(CapabilityGroup.SCREEN_CAPTURE)
+            uiControlSwitch.isChecked =
+                store.isCapabilityEnabled(CapabilityGroup.UI_CONTROL)
+        } finally {
+            bindingSwitches = false
+        }
+    }
+
     private fun sectionTitle(value: String): TextView =
         text(value, 17f, Typeface.BOLD).withMargins(bottom = 10)
 
@@ -391,5 +513,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val REQUEST_LOCATION = 101
         private const val REQUEST_NOTIFICATIONS = 102
+        private const val REQUEST_PHONE_PERMISSIONS = 103
     }
 }

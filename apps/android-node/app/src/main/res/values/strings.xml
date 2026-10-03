@@ -5,6 +5,7 @@
     <string name="node_service_title">ADC Mobile Node is active</string>
     <string name="node_service_idle">Waiting for authorized Agent requests</string>
     <string name="agent_notifications_channel">Agent notifications</string>
+    <string name="accessibility_service_description">Allow explicitly authorized Agents to inspect and operate the visible Android interface.</string>
     <string name="default_device_name">%1$s %2$s</string>
     <string name="node_not_paired">Not paired</string>
     <string name="node_pairing">Pairing…</string>

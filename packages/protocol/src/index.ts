@@ -35,6 +35,7 @@ export const DispatchIdSchema = z.string().regex(/^dsp_[a-z0-9][a-z0-9_-]{2,127}
 export const ApprovalIdSchema = z.string().regex(/^apr_[a-z0-9][a-z0-9_-]{2,127}$/);
 export const ReceiptIdSchema = z.string().regex(/^rcpt_[a-z0-9][a-z0-9_-]{2,127}$/);
 export const JobIdSchema = z.string().regex(/^job_[a-z0-9][a-z0-9_-]{2,127}$/);
+export const ArtifactIdSchema = z.string().regex(/^artifact_[a-f0-9]{32}\.(?:log|png)$/);
 export const NodePlatformSchema = z.enum(["darwin", "linux", "win32", "android"]);
 export type NodePlatform = z.infer<typeof NodePlatformSchema>;
 
@@ -177,12 +178,66 @@ const ShellOptions = {
     .default(120_000),
   env: z.record(z.string().regex(/^[A-Z_][A-Z0-9_]*$/), z.string().max(8192)).default({})
 } as const;
+const UiSelectorSchema = z
+  .object({
+    resourceId: z.string().min(1).max(256).optional(),
+    text: z.string().max(1000).optional(),
+    contentDescription: z.string().max(1000).optional(),
+    className: z.string().min(1).max(256).optional(),
+    packageName: z.string().min(1).max(256).optional(),
+    match: z.enum(["exact", "contains"]).default("exact"),
+    index: z.number().int().min(0).max(1000).default(0)
+  })
+  .strict()
+  .refine(
+    (selector) =>
+      selector.resourceId !== undefined ||
+      selector.text !== undefined ||
+      selector.contentDescription !== undefined ||
+      selector.className !== undefined ||
+      selector.packageName !== undefined,
+    "UI selector must include at least one matching field."
+  );
+const UiActionArgsSchema = z
+  .object({
+    selector: UiSelectorSchema,
+    action: z.enum([
+      "click",
+      "long_click",
+      "focus",
+      "scroll_forward",
+      "scroll_backward",
+      "set_text"
+    ]),
+    text: z.string().max(4000).optional()
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.action === "set_text" && value.text === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["text"],
+        message: "text is required for set_text"
+      });
+    } else if (value.action !== "set_text" && value.text !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["text"],
+        message: "text is only accepted for set_text"
+      });
+    }
+  });
 
 export const ToolArgsSchemas = {
   "device.list": z.object({}).strict(),
   "device.status": z.object({ nodeId: NodeIdSchema }).strict(),
   "device.battery.get": z.object({}).strict(),
   "device.network.get": z.object({}).strict(),
+  "device.navigation": z
+    .object({
+      action: z.enum(["back", "home", "recents", "notifications", "quick_settings"])
+    })
+    .strict(),
   "location.get": z
     .object({
       desiredAccuracy: z.enum(["coarse", "balanced", "precise"]).default("balanced"),
@@ -201,6 +256,38 @@ export const ToolArgsSchemas = {
       body: z.string().max(2000)
     })
     .strict(),
+  "screen.capture": z
+    .object({
+      format: z.literal("png").default("png"),
+      maxWidth: z.number().int().min(320).max(2160).default(1080)
+    })
+    .strict(),
+  "ui.inspect": z
+    .object({
+      maxDepth: z.number().int().min(1).max(30).default(12),
+      maxNodes: z.number().int().min(1).max(1000).default(500)
+    })
+    .strict(),
+  "ui.action": UiActionArgsSchema,
+  "ui.gesture": z.discriminatedUnion("type", [
+    z
+      .object({
+        type: z.literal("tap"),
+        x: z.number().int().min(0).max(20_000),
+        y: z.number().int().min(0).max(20_000)
+      })
+      .strict(),
+    z
+      .object({
+        type: z.literal("swipe"),
+        startX: z.number().int().min(0).max(20_000),
+        startY: z.number().int().min(0).max(20_000),
+        endX: z.number().int().min(0).max(20_000),
+        endY: z.number().int().min(0).max(20_000),
+        durationMs: z.number().int().min(50).max(5000).default(300)
+      })
+      .strict()
+  ]),
   "file.list": z.union([
     z.object({ ...LegacyRootPathShape, ...FileListOptions }).strict(),
     z.object({ ...AbsolutePathShape, ...FileListOptions }).strict()
@@ -310,6 +397,8 @@ export const ReadOnlyTools: ReadonlySet<ToolName> = new Set([
   "device.status",
   "device.battery.get",
   "device.network.get",
+  "screen.capture",
+  "ui.inspect",
   "location.get",
   "file.list",
   "file.read",
@@ -320,7 +409,10 @@ export const ReadOnlyTools: ReadonlySet<ToolName> = new Set([
 ]);
 
 export const SideEffectTools: ReadonlySet<ToolName> = new Set([
+  "device.navigation",
   "notification.show",
+  "ui.action",
+  "ui.gesture",
   "file.write",
   "file.edit",
   "file.patch",
@@ -456,7 +548,7 @@ export const ReceiptSchema = z
     startedAt: z.iso.datetime({ offset: true }),
     completedAt: z.iso.datetime({ offset: true }),
     durationMs: z.number().int().nonnegative(),
-    artifactRefs: z.array(z.string().min(1).max(512)).default([])
+    artifactRefs: z.array(ArtifactIdSchema).default([])
   })
   .strict();
 export type Receipt = z.infer<typeof ReceiptSchema>;

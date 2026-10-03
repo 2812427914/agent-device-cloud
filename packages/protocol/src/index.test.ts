@@ -10,6 +10,7 @@ import {
   ProtocolError,
   ResourcePathSchema,
   assertInvocationCurrent,
+  isSideEffectTool,
   relativePathFromRoot,
   rootForAbsolutePath
 } from "./index.ts";
@@ -84,6 +85,54 @@ describe("InvocationSchema", () => {
     expect(
       InvocationSchema.parse({ ...input, idempotencyKey: "write-index-v1" }).idempotencyKey
     ).toBe("write-index-v1");
+  });
+
+  it("validates mobile screen and accessibility capabilities", () => {
+    const target = { nodeId: "node_android" };
+    expect(
+      InvocationSchema.parse(
+        invocation({
+          target,
+          tool: "screen.capture",
+          args: {}
+        })
+      ).args
+    ).toEqual({ format: "png", maxWidth: 1080 });
+    expect(
+      InvocationSchema.parse(
+        invocation({
+          target,
+          tool: "ui.inspect",
+          args: {}
+        })
+      ).args
+    ).toEqual({ maxDepth: 12, maxNodes: 500 });
+    const action = invocation({
+      target,
+      tool: "ui.action",
+      args: {
+        selector: { resourceId: "android:id/button1" },
+        action: "set_text",
+        text: "ADC"
+      }
+    });
+    expect(InvocationSchema.safeParse(action).success).toBe(false);
+    expect(
+      InvocationSchema.safeParse({ ...action, idempotencyKey: "mobile-action-1" }).success
+    ).toBe(true);
+    expect(
+      InvocationSchema.safeParse({
+        ...action,
+        idempotencyKey: "mobile-action-2",
+        args: {
+          selector: { resourceId: "android:id/button1" },
+          action: "set_text"
+        }
+      }).success
+    ).toBe(false);
+    expect(isSideEffectTool("device.navigation")).toBe(true);
+    expect(isSideEffectTool("ui.gesture")).toBe(true);
+    expect(isSideEffectTool("screen.capture")).toBe(false);
   });
 
   it("accepts namespaced MCP tools and requires an idempotency key", () => {

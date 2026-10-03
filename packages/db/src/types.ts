@@ -138,6 +138,7 @@ export interface ArtifactRecord {
   nodeId: string;
   contentType: string;
   sha256: string;
+  byteSize: number;
   data: Buffer;
   createdAt: string;
 }

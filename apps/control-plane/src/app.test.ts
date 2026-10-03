@@ -1,4 +1,4 @@
-import { generateKeyPairSync, randomBytes } from "node:crypto";
+import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import type { InjectOptions, LightMyRequestResponse } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { AdcClient } from "@adc/client";
@@ -37,6 +37,7 @@ function fetchFor(app: Awaited<ReturnType<typeof createControlPlane>>): typeof f
 
 async function fixture(now?: () => Date) {
   const store = new MemoryStore();
+  const assets = new Map<string, Buffer>();
   const app = await createControlPlane({
     store,
     access: accessFixture({
@@ -46,6 +47,16 @@ async function fixture(now?: () => Date) {
         "other-agent-token": { accountId: "acct_primary", grantId: "grant_other" }
       }
     }),
+    assetStore: {
+      async put(sha256, data) {
+        assets.set(sha256, Buffer.from(data));
+      },
+      async get(sha256) {
+        const data = assets.get(sha256);
+        if (!data) throw new Error("asset not found");
+        return Buffer.from(data);
+      }
+    },
     ...(now ? { now } : {})
   });
   apps.push(app);
@@ -77,7 +88,7 @@ async function fixture(now?: () => Date) {
     nodeVersion: "0.1.0",
     advertisedAt: new Date().toISOString()
   });
-  return { app, store, fetcher, owner, node, paired, keys, capability };
+  return { app, store, assets, fetcher, owner, node, paired, keys, capability };
 }
 
 async function ownerRequest(
@@ -154,6 +165,92 @@ describe("control plane", () => {
         })
       )
     ).resolves.toMatchObject({ dispatch: null });
+  });
+
+  it("stores screenshot bytes in the asset plane and only metadata in the database", async () => {
+    const { store, assets, owner, node, paired, capability } = await fixture();
+    const mobileCapability = CapabilitySchema.parse({
+      ...capability,
+      roots: [],
+      accessMode: "none",
+      tools: [
+        {
+          name: "screen.capture",
+          version: "0.1.0",
+          risk: "read",
+          sandboxProfiles: ["native-app"],
+          availability: {
+            state: "available",
+            observedAt: new Date().toISOString()
+          }
+        }
+      ]
+    });
+    await node.poll(mobileCapability);
+    expect(
+      (
+        await owner.createAccess({
+          grantId: "grant_screen",
+          actorId: "actor_screen",
+          name: "Screen agent",
+          profile: "read-only",
+          nodeIds: [paired.nodeId],
+          rootAccess: "selected",
+          rootIds: [],
+          approvalPolicy: "never",
+          allowedTools: ["screen.capture", "task.status"]
+        })
+      ).grantId
+    ).toBe("grant_screen");
+    const now = new Date();
+    const invocation = InvocationSchema.parse({
+      schemaVersion: "0.1",
+      invocationId: createId("inv"),
+      attemptId: createId("att"),
+      accountId: "acct_primary",
+      actor: { type: "agent", id: "actor_screen" },
+      target: { nodeId: paired.nodeId },
+      authorization: { rootIds: [], grantId: "grant_screen" },
+      tool: "screen.capture",
+      args: {},
+      issuedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+      metadata: { source: "sdk" }
+    });
+    const queued = await owner.invoke(invocation);
+    const polled = await node.poll(mobileCapability);
+    await node.acknowledge(polled.dispatch!.dispatchId, polled.dispatch!.leaseToken);
+
+    const data = Buffer.from("not-a-real-png");
+    const contentHash = `sha256:${createHash("sha256").update(data).digest("hex")}`;
+    const artifactId = "artifact_0123456789abcdef0123456789abcdef.png";
+    await node.uploadArtifact({
+      dispatchId: polled.dispatch!.dispatchId,
+      artifactId,
+      contentType: "image/png",
+      sha256: contentHash,
+      data
+    });
+    await node.complete({
+      dispatchId: polled.dispatch!.dispatchId,
+      leaseToken: polled.dispatch!.leaseToken,
+      result: ResultSchema.parse({
+        schemaVersion: "0.1",
+        invocationId: invocation.invocationId,
+        attemptId: invocation.attemptId,
+        status: "succeeded",
+        output: { artifactId }
+      })
+    });
+
+    expect(assets.get(contentHash)).toEqual(data);
+    expect((await store.getArtifact(artifactId))?.byteSize).toBe(data.byteLength);
+    expect((await store.getArtifact(artifactId))?.data).toHaveLength(0);
+    await expect(owner.artifact(artifactId)).resolves.toEqual(new Uint8Array(data));
+    await expect(owner.taskStatus(queued.jobId!)).resolves.toMatchObject({
+      status: "succeeded",
+      output: { artifactId }
+    });
   });
 
   it("pairs once, dispatches with a lease, accepts a terminal result and audits it", async () => {
