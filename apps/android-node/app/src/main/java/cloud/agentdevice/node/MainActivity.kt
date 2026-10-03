@@ -116,15 +116,18 @@ class MainActivity : AppCompatActivity() {
         root.addView(card(status).withMargins(bottom = 18))
 
         root.addView(sectionTitle("Pair this phone"))
-        urlInput = input("ADC HTTPS URL", "https://devices.example.com")
-        codeInput = input("Pairing code", "Create one from ADC Devices")
-        labelInput = input(
+        val urlField = input("ADC HTTPS URL", "https://devices.example.com")
+        val codeField = input("Pairing code", "Create one from ADC Devices")
+        val labelField = input(
             "Device name",
             defaultDeviceName()
         )
-        root.addView(urlInput.parent as ViewGroup)
-        root.addView((codeInput.parent as ViewGroup).withMargins(top = 8))
-        root.addView((labelInput.parent as ViewGroup).withMargins(top = 8))
+        urlInput = urlField.editText as TextInputEditText
+        codeInput = codeField.editText as TextInputEditText
+        labelInput = labelField.editText as TextInputEditText
+        root.addView(urlField)
+        root.addView(codeField.withMargins(top = 8))
+        root.addView(labelField.withMargins(top = 8))
         pairButton = button("Pair and start") { pair() }
         root.addView(pairButton.withMargins(top = 12, bottom = 24))
 
@@ -316,22 +319,21 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun input(label: String, hint: String): TextInputEditText {
+    private fun input(label: String, hint: String): TextInputLayout {
         val edit = TextInputEditText(this).apply {
             this.hint = hint
             setSingleLine(true)
         }
-        TextInputLayout(this).apply {
+        return TextInputLayout(this).apply {
             this.hint = label
             addView(
                 edit,
-                ViewGroup.LayoutParams(
+                LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
             )
         }
-        return edit
     }
 
     private fun button(label: String, action: () -> Unit): MaterialButton =
